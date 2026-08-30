@@ -1,0 +1,24 @@
+services:
+  postgres:
+    image: postgis/postgis:17-3.5
+    container_name: europolitik-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: europolitik
+      POSTGRES_PASSWORD: europolitik
+      POSTGRES_DB: europolitik
+    ports:
+      - "5432:5432"
+    volumes:
+      - europolitik-pgdata:/var/lib/postgresql/data
+
+  pgadmin:
+    image: dpage/pgadmin4
+    container_name: pgadmin-tutorial
+    environment:
+      PGADMIN_DEFAULT_EMAIL: admin@example.com
+      PGADMIN_DEFAULT_PASSWORD: admin
+    ports:
+      - "5050:80"
+volumes:
+  europolitik-pgdata:
