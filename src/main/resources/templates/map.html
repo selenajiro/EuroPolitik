@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <title>Europe Political Monitor — Map</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <style>
+        html, body { margin: 0; padding: 0; height: 100%; }
+        #map { height: 100vh; width: 100%; }
+        .country-popup h3 { margin: 0 0 6px; }
+        .country-popup span { display: inline-block; margin-right: 6px; padding: 2px 6px; border-radius: 4px; font-size: 12px; background: #eee; }
+        .country-popup .yes { background: #d4edda; color: #155724; }
+        .country-popup .no { background: #f8d7da; color: #721c24; }
+    </style>
+</head>
+<body>
+<div id="map"></div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script>
+    const map = L.map('map').setView([54, 15], 4);
+
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution: '&copy; OpenStreetMap contributors',
+        maxZoom: 18
+    }).addTo(map);
+
+    function badge(label, value) {
+        return `<span class="${value ? 'yes' : 'no'}">${label}: ${value ? 'Yes' : 'No'}</span>`;
+    }
+
+    fetch('/api/countries/geojson')
+        .then(res => res.json())
+        .then(data => {
+            L.geoJSON(data, {
+                style: feature => ({
+                    color: '#2c3e50',
+                    weight: 1,
+                    fillColor: feature.properties.euMember ? '#3498db' : '#95a5a6',
+                    fillOpacity: 0.5
+                }),
+                onEachFeature: (feature, layer) => {
+                    const p = feature.properties;
+                    layer.bindPopup(`
+                            <div class="country-popup">
+                                <h3>${p.name}</h3>
+                                ${badge('EU', p.euMember)}
+                                ${badge('Schengen', p.schengenMember)}
+                                ${badge('Eurozone', p.eurozoneMember)}
+                                ${badge('NATO', p.natoMember)}
+                            </div>
+                        `);
+                    layer.on('mouseover', () => layer.setStyle({ fillOpacity: 0.8 }));
+                    layer.on('mouseout', () => layer.setStyle({ fillOpacity: 0.5 }));
+                }
+            }).addTo(map);
+        });
+</script>
+</body>
+</html>
