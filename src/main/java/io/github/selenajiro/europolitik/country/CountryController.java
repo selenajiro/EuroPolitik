@@ -37,7 +37,7 @@ public class CountryController {
     }
 
     @GetMapping(value = "/geojson", produces = MediaType.APPLICATION_JSON_VALUE)
-    public JsonNode geoJson() {
+    public String geoJson() {
         List<Country> countries = countryRepository.findAll();
 
         ObjectNode featureCollection = objectMapper.createObjectNode();
@@ -65,6 +65,10 @@ public class CountryController {
             }
         }
 
-        return featureCollection;
+        try {
+            return objectMapper.writeValueAsString(featureCollection);
+        } catch (Exception e) {
+            throw new RuntimeException("Failed to serialize GeoJSON response", e);
+        }
     }
 }

@@ -2,58 +2,118 @@
 <html lang="en" xmlns:th="http://www.thymeleaf.org">
 <head>
     <meta charset="UTF-8">
-    <title>Europe Political Monitor — Map</title>
+    <title>EuroPolitik</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&family=IBM+Plex+Sans:wght@400;500&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <style>
-        html, body { margin: 0; padding: 0; height: 100%; }
-        #map { height: 100vh; width: 100%; }
-        .country-popup h3 { margin: 0 0 6px; }
-        .country-popup span { display: inline-block; margin-right: 6px; padding: 2px 6px; border-radius: 4px; font-size: 12px; background: #eee; }
-        .country-popup .yes { background: #d4edda; color: #155724; }
-        .country-popup .no { background: #f8d7da; color: #721c24; }
+        :root {
+            --ocean: #1c2b3a;
+            --ocean-deep: #121b24;
+            --land-base: #9c9186;
+            --land-eu: #b8945f;
+            --highlight: #7a3b4a;
+            --cream: #ede7da;
+        }
+        html, body { margin: 0; padding: 0; height: 100%; font-family: 'IBM Plex Sans', sans-serif; }
+        #map { height: 100vh; width: 100%; background: var(--ocean); }
+        .leaflet-container { background: var(--ocean); }
+
+        .site-title {
+            position: absolute; top: 20px; right: 24px; z-index: 1000;
+            font-family: 'Source Serif 4', serif; font-size: 22px; font-weight: 600;
+            color: var(--cream); text-shadow: 0 1px 6px rgba(0,0,0,0.5);
+            pointer-events: none;
+        }
+
+        .legend {
+            position: absolute; bottom: 24px; left: 24px; z-index: 1000;
+            background: var(--ocean-deep); color: var(--cream);
+            padding: 14px 18px; border-radius: 3px; font-size: 13px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.35);
+        }
+        .legend div { display: flex; align-items: center; gap: 8px; margin: 4px 0; }
+        .legend .swatch { width: 12px; height: 12px; border-radius: 2px; }
+
+        .country-popup { font-family: 'IBM Plex Sans', sans-serif; min-width: 180px; }
+        .country-popup h3 {
+            font-family: 'Source Serif 4', serif; font-weight: 600; font-size: 18px;
+            margin: 0 0 10px; color: var(--ocean-deep);
+        }
+        .country-popup .fact { display: flex; justify-content: space-between; font-size: 13px; padding: 3px 0; }
+        .country-popup .fact .label { color: #6b6b6b; }
+        .country-popup .fact .value.yes { color: var(--land-eu); font-weight: 500; }
+        .country-popup .fact .value.no { color: #b7b0a8; }
+
+        .leaflet-popup-content-wrapper { background: var(--cream); border-radius: 4px; }
+        .leaflet-popup-tip { background: var(--cream); }
+
+        .load-error {
+            position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+            z-index: 2000; background: var(--ocean-deep); color: var(--cream);
+            font-family: 'IBM Plex Sans', sans-serif; padding: 18px 26px; border-radius: 4px;
+            max-width: 420px; box-shadow: 0 4px 24px rgba(0,0,0,0.4);
+        }
     </style>
 </head>
 <body>
+<div class="site-title">EuroPolitik</div>
 <div id="map"></div>
+<div class="legend">
+    <div><span class="swatch" style="background: #b8945f"></span>EU member</div>
+    <div><span class="swatch" style="background: #9c9186"></span>Non-EU</div>
+</div>
 
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script>
-    const map = L.map('map').setView([54, 15], 4);
+    const europeBounds = L.latLngBounds([34, -25], [71, 45]);
 
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-        attribution: '&copy; OpenStreetMap contributors',
-        maxZoom: 18
-    }).addTo(map);
+    const map = L.map('map', {
+        minZoom: 3,
+        maxBounds: europeBounds.pad(0.25),
+        maxBoundsViscosity: 1.0
+    }).fitBounds(europeBounds);
 
-    function badge(label, value) {
-        return `<span class="${value ? 'yes' : 'no'}">${label}: ${value ? 'Yes' : 'No'}</span>`;
+    function fact(label, value) {
+        return `<div class="fact"><span class="label">${label}</span><span class="value ${value ? 'yes' : 'no'}">${value ? 'Yes' : 'No'}</span></div>`;
     }
 
     fetch('/api/countries/geojson')
-        .then(res => res.json())
+        .then(res => {
+            if (!res.ok) throw new Error(`Server responded with status ${res.status}`);
+            return res.json();
+        })
         .then(data => {
+            if (!data.features || data.features.length === 0) {
+                throw new Error('Response had no country features');
+            }
             L.geoJSON(data, {
                 style: feature => ({
-                    color: '#2c3e50',
+                    color: '#1c2b3a',
                     weight: 1,
-                    fillColor: feature.properties.euMember ? '#3498db' : '#95a5a6',
-                    fillOpacity: 0.5
+                    fillColor: feature.properties.euMember ? '#b8945f' : '#9c9186',
+                    fillOpacity: 0.9
                 }),
-                onEachFeature: (feature, layer) => {
+                onEachFeature: (feature, lyr) => {
                     const p = feature.properties;
-                    layer.bindPopup(`
+                    lyr.bindPopup(`
                             <div class="country-popup">
                                 <h3>${p.name}</h3>
-                                ${badge('EU', p.euMember)}
-                                ${badge('Schengen', p.schengenMember)}
-                                ${badge('Eurozone', p.eurozoneMember)}
-                                ${badge('NATO', p.natoMember)}
+                                ${fact('EU member', p.euMember)}
+                                ${fact('Schengen', p.schengenMember)}
+                                ${fact('Eurozone', p.eurozoneMember)}
+                                ${fact('NATO', p.natoMember)}
                             </div>
                         `);
-                    layer.on('mouseover', () => layer.setStyle({ fillOpacity: 0.8 }));
-                    layer.on('mouseout', () => layer.setStyle({ fillOpacity: 0.5 }));
+                    lyr.on('mouseover', () => lyr.setStyle({ fillColor: '#7a3b4a' }));
+                    lyr.on('mouseout', () => lyr.setStyle({ fillColor: p.euMember ? '#b8945f' : '#9c9186' }));
                 }
             }).addTo(map);
+        })
+        .catch(err => {
+            document.body.insertAdjacentHTML('beforeend',
+                `<div class="load-error">Couldn't load country data: ${err.message}</div>`);
+            console.error('GeoJSON fetch failed:', err);
         });
 </script>
 </body>
