@@ -12,10 +12,16 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.util.List;
+import java.util.Map;
 
 @RestController
 @RequestMapping("/api/countries")
 public class CountryController {
+
+    private static final Map<String, List<String>> OTHER_REAL_WORLD_NEIGHBORS = Map.of(
+            "TR", List.of("Georgia", "Armenia", "Azerbaijan", "Iran", "Iraq", "Syria"),
+            "RU", List.of("Georgia", "Azerbaijan", "Kazakhstan", "Mongolia", "China", "North Korea")
+    );
 
     private final CountryRepository countryRepository;
     private final ObjectMapper objectMapper = new ObjectMapper();
@@ -27,18 +33,28 @@ public class CountryController {
     }
 
     @GetMapping
-    public List<Country> findAll() {
-        return countryRepository.findAll();
+    public List<CountryResponse> findAll() {
+        return countryRepository.findAll().stream()
+                .map(CountryResponse::from)
+                .toList();
     }
 
     @GetMapping("/{id}")
-    public Country findById(@PathVariable Long id) {
-        return countryRepository.findById(id).orElseThrow();
+    public CountryResponse findById(@PathVariable Long id) {
+        return CountryResponse.from(countryRepository.findById(id).orElseThrow());
     }
 
     @GetMapping("/{id}/neighbors")
-    public List<Country> neighbors(@PathVariable Long id) {
-        return countryRepository.findNeighbors(id);
+    public CountryNeighborsResponse neighbors(@PathVariable Long id) {
+        Country country = countryRepository.findById(id).orElseThrow();
+
+        List<CountryNeighborsResponse.NeighborSummary> inDataset = countryRepository.findNeighbors(id).stream()
+                .map(CountryNeighborsResponse.NeighborSummary::from)
+                .toList();
+
+        List<String> otherNeighbors = OTHER_REAL_WORLD_NEIGHBORS.getOrDefault(country.getIsoCode(), List.of());
+
+        return new CountryNeighborsResponse(inDataset, otherNeighbors);
     }
 
     @GetMapping(value = "/geojson", produces = MediaType.APPLICATION_JSON_VALUE)
