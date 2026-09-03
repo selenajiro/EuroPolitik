@@ -36,6 +36,11 @@ public class CountryController {
         return countryRepository.findById(id).orElseThrow();
     }
 
+    @GetMapping("/{id}/neighbors")
+    public List<Country> neighbors(@PathVariable Long id) {
+        return countryRepository.findNeighbors(id);
+    }
+
     @GetMapping(value = "/geojson", produces = MediaType.APPLICATION_JSON_VALUE)
     public String geoJson() {
         List<Country> countries = countryRepository.findAll();
