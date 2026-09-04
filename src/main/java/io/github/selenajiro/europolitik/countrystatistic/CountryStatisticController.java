@@ -11,22 +11,22 @@ import java.util.List;
 @RequestMapping("/api/country-statistics")
 public class CountryStatisticController {
 
-    private final CountryStatisticRepository countryStatisticRepository;
+    private final CountryStatisticService countryStatisticService;
 
-    public CountryStatisticController(CountryStatisticRepository countryStatisticRepository) {
-        this.countryStatisticRepository = countryStatisticRepository;
+    public CountryStatisticController(CountryStatisticService countryStatisticService) {
+        this.countryStatisticService = countryStatisticService;
     }
 
     @GetMapping
     public List<CountryStatisticResponse> findAll() {
-        return countryStatisticRepository.findAllWithCountry().stream()
+        return countryStatisticService.findAllWithCountry().stream()
                 .map(CountryStatisticResponse::from)
                 .toList();
     }
 
     @GetMapping("/{id}")
     public CountryStatisticResponse findById(@PathVariable Long id) {
-        return countryStatisticRepository.findByIdWithCountry(id)
+        return countryStatisticService.findByIdWithCountry(id)
                 .map(CountryStatisticResponse::from)
                 .orElseThrow();
     }

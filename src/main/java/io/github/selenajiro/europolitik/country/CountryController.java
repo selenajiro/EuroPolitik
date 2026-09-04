@@ -23,32 +23,32 @@ public class CountryController {
             "RU", List.of("Georgia", "Azerbaijan", "Kazakhstan", "Mongolia", "China", "North Korea")
     );
 
-    private final CountryRepository countryRepository;
+    private final CountryService countryService;
     private final ObjectMapper objectMapper = new ObjectMapper();
     private final GeoJsonWriter geoJsonWriter = new GeoJsonWriter(4);
 
-    public CountryController(CountryRepository countryRepository) {
-        this.countryRepository = countryRepository;
+    public CountryController(CountryService countryService) {
+        this.countryService = countryService;
         this.geoJsonWriter.setEncodeCRS(false);
     }
 
     @GetMapping
     public List<CountryResponse> findAll() {
-        return countryRepository.findAll().stream()
+        return countryService.findAll().stream()
                 .map(CountryResponse::from)
                 .toList();
     }
 
     @GetMapping("/{id}")
     public CountryResponse findById(@PathVariable Long id) {
-        return CountryResponse.from(countryRepository.findById(id).orElseThrow());
+        return CountryResponse.from(countryService.findById(id));
     }
 
     @GetMapping("/{id}/neighbors")
     public CountryNeighborsResponse neighbors(@PathVariable Long id) {
-        Country country = countryRepository.findById(id).orElseThrow();
+        Country country = countryService.findById(id);
 
-        List<CountryNeighborsResponse.NeighborSummary> inDataset = countryRepository.findNeighbors(id).stream()
+        List<CountryNeighborsResponse.NeighborSummary> inDataset = countryService.findNeighbors(id).stream()
                 .map(CountryNeighborsResponse.NeighborSummary::from)
                 .toList();
 
@@ -59,7 +59,7 @@ public class CountryController {
 
     @GetMapping(value = "/geojson", produces = MediaType.APPLICATION_JSON_VALUE)
     public String geoJson() {
-        List<Country> countries = countryRepository.findAll();
+        List<Country> countries = countryService.findAll();
 
         ObjectNode featureCollection = objectMapper.createObjectNode();
         featureCollection.put("type", "FeatureCollection");

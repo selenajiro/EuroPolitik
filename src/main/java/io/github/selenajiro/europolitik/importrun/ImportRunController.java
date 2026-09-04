@@ -11,22 +11,22 @@ import java.util.List;
 @RequestMapping("/api/import-runs")
 public class ImportRunController {
 
-    private final ImportRunRepository importRunRepository;
+    private final ImportRunService importRunService;
 
-    public ImportRunController(ImportRunRepository importRunRepository) {
-        this.importRunRepository = importRunRepository;
+    public ImportRunController(ImportRunService importRunService) {
+        this.importRunService = importRunService;
     }
 
     @GetMapping
     public List<ImportRunResponse> findAll() {
-        return importRunRepository.findAll().stream()
+        return importRunService.findAll().stream()
                 .map(ImportRunResponse::from)
                 .toList();
     }
 
     @GetMapping("/{id}")
     public ImportRunResponse findById(@PathVariable Long id) {
-        return importRunRepository.findById(id)
+        return importRunService.findById(id)
                 .map(ImportRunResponse::from)
                 .orElseThrow();
     }

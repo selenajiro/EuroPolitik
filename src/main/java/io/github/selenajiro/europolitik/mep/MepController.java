@@ -11,22 +11,22 @@ import java.util.List;
 @RequestMapping("/api/meps")
 public class MepController {
 
-    private final MepRepository mepRepository;
+    private final MepService mepService;
 
-    public MepController(MepRepository mepRepository) {
-        this.mepRepository = mepRepository;
+    public MepController(MepService mepService) {
+        this.mepService = mepService;
     }
 
     @GetMapping
     public List<MepResponse> findAll() {
-        return mepRepository.findAllWithCountry().stream()
+        return mepService.findAllWithCountry().stream()
                 .map(MepResponse::from)
                 .toList();
     }
 
     @GetMapping("/{id}")
     public MepResponse findById(@PathVariable Long id) {
-        return mepRepository.findByIdWithCountry(id)
+        return mepService.findByIdWithCountry(id)
                 .map(MepResponse::from)
                 .orElseThrow();
     }

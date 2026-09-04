@@ -11,22 +11,22 @@ import java.util.List;
 @RequestMapping("/api/political-parties")
 public class PoliticalPartyController {
 
-    private final PoliticalPartyRepository politicalPartyRepository;
+    private final PoliticalPartyService politicalPartyService;
 
-    public PoliticalPartyController(PoliticalPartyRepository politicalPartyRepository) {
-        this.politicalPartyRepository = politicalPartyRepository;
+    public PoliticalPartyController(PoliticalPartyService politicalPartyService) {
+        this.politicalPartyService = politicalPartyService;
     }
 
     @GetMapping
     public List<PoliticalPartyResponse> findAll() {
-        return politicalPartyRepository.findAllWithCountry().stream()
+        return politicalPartyService.findAllWithCountry().stream()
                 .map(PoliticalPartyResponse::from)
                 .toList();
     }
 
     @GetMapping("/{id}")
     public PoliticalPartyResponse findById(@PathVariable Long id) {
-        return politicalPartyRepository.findByIdWithCountry(id)
+        return politicalPartyService.findByIdWithCountry(id)
                 .map(PoliticalPartyResponse::from)
                 .orElseThrow();
     }

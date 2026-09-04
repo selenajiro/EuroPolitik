@@ -11,22 +11,22 @@ import java.util.List;
 @RequestMapping("/api/elections")
 public class ElectionController {
 
-    private final ElectionRepository electionRepository;
+    private final ElectionService electionService;
 
-    public ElectionController(ElectionRepository electionRepository) {
-        this.electionRepository = electionRepository;
+    public ElectionController(ElectionService electionService) {
+        this.electionService = electionService;
     }
 
     @GetMapping
     public List<ElectionResponse> findAll() {
-        return electionRepository.findAllWithCountry().stream()
+        return electionService.findAllWithCountry().stream()
                 .map(ElectionResponse::from)
                 .toList();
     }
 
     @GetMapping("/{id}")
     public ElectionResponse findById(@PathVariable Long id) {
-        return electionRepository.findByIdWithCountry(id)
+        return electionService.findByIdWithCountry(id)
                 .map(ElectionResponse::from)
                 .orElseThrow();
     }

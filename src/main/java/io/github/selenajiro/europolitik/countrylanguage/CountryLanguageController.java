@@ -11,22 +11,22 @@ import java.util.List;
 @RequestMapping("/api/country-languages")
 public class CountryLanguageController {
 
-    private final CountryLanguageRepository countryLanguageRepository;
+    private final CountryLanguageService countryLanguageService;
 
-    public CountryLanguageController(CountryLanguageRepository countryLanguageRepository) {
-        this.countryLanguageRepository = countryLanguageRepository;
+    public CountryLanguageController(CountryLanguageService countryLanguageService) {
+        this.countryLanguageService = countryLanguageService;
     }
 
     @GetMapping
     public List<CountryLanguageResponse> findAll() {
-        return countryLanguageRepository.findAllWithCountry().stream()
+        return countryLanguageService.findAllWithCountry().stream()
                 .map(CountryLanguageResponse::from)
                 .toList();
     }
 
     @GetMapping("/{id}")
     public CountryLanguageResponse findById(@PathVariable Long id) {
-        return countryLanguageRepository.findByIdWithCountry(id)
+        return countryLanguageService.findByIdWithCountry(id)
                 .map(CountryLanguageResponse::from)
                 .orElseThrow();
     }
