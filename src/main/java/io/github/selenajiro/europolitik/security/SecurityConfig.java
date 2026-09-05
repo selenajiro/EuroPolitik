@@ -31,6 +31,7 @@ public class SecurityConfig {
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers("/api/auth/**").permitAll()
                         .requestMatchers("/map", "/", "/countries/**").permitAll()
+                        .requestMatchers("/api/ping").permitAll()
                         .requestMatchers("/api/countries/**", "/api/political-parties/**",
                                 "/api/elections/**", "/api/election-results/**", "/api/meps/**",
                                 "/api/political-events/**", "/api/country-statistics/**",
