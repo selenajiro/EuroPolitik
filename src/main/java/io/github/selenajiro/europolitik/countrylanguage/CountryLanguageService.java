@@ -21,4 +21,8 @@ public class CountryLanguageService {
     public Optional<CountryLanguage> findByIdWithCountry(Long id) {
         return countryLanguageRepository.findByIdWithCountry(id);
     }
+
+    public List<CountryLanguage> findAllByCountryId(Long countryId) {
+        return countryLanguageRepository.findAllByCountryId(countryId);
+    }
 }

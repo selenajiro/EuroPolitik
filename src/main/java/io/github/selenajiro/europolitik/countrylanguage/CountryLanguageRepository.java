@@ -13,4 +13,7 @@ public interface CountryLanguageRepository extends JpaRepository<CountryLanguage
 
     @Query("SELECT l FROM CountryLanguage l JOIN FETCH l.country WHERE l.id = :id")
     Optional<CountryLanguage> findByIdWithCountry(Long id);
+
+    @Query("SELECT l FROM CountryLanguage l JOIN FETCH l.country WHERE l.country.id = :countryId")
+    List<CountryLanguage> findAllByCountryId(Long countryId);
 }

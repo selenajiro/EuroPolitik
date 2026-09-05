@@ -21,4 +21,8 @@ public class PoliticalEventService {
     public Optional<PoliticalEvent> findByIdWithCountry(Long id) {
         return politicalEventRepository.findByIdWithCountry(id);
     }
+
+    public List<PoliticalEvent> findAllByCountryId(Long countryId) {
+        return politicalEventRepository.findAllByCountryId(countryId);
+    }
 }

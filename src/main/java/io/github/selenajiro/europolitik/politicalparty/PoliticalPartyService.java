@@ -21,4 +21,8 @@ public class PoliticalPartyService {
     public Optional<PoliticalParty> findByIdWithCountry(Long id) {
         return politicalPartyRepository.findByIdWithCountry(id);
     }
+
+    public List<PoliticalParty> findAllByCountryId(Long countryId) {
+        return politicalPartyRepository.findAllByCountryId(countryId);
+    }
 }

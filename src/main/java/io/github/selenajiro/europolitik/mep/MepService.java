@@ -21,4 +21,8 @@ public class MepService {
     public Optional<Mep> findByIdWithCountry(Long id) {
         return mepRepository.findByIdWithCountry(id);
     }
+
+    public List<Mep> findAllByCountryId(Long countryId) {
+        return mepRepository.findAllByCountryId(countryId);
+    }
 }

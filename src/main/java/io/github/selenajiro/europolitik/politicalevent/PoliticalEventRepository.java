@@ -13,4 +13,7 @@ public interface PoliticalEventRepository extends JpaRepository<PoliticalEvent, 
 
     @Query("SELECT e FROM PoliticalEvent e LEFT JOIN FETCH e.country WHERE e.id = :id")
     Optional<PoliticalEvent> findByIdWithCountry(Long id);
+
+    @Query("SELECT e FROM PoliticalEvent e LEFT JOIN FETCH e.country WHERE e.country.id = :countryId")
+    List<PoliticalEvent> findAllByCountryId(Long countryId);
 }

@@ -21,4 +21,8 @@ public class CountryStatisticService {
     public Optional<CountryStatistic> findByIdWithCountry(Long id) {
         return countryStatisticRepository.findByIdWithCountry(id);
     }
+
+    public List<CountryStatistic> findAllByCountryId(Long countryId) {
+        return countryStatisticRepository.findAllByCountryId(countryId);
+    }
 }

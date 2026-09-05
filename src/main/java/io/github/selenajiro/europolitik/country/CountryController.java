@@ -24,11 +24,13 @@ public class CountryController {
     );
 
     private final CountryService countryService;
+    private final CountryProfileService countryProfileService;
     private final ObjectMapper objectMapper = new ObjectMapper();
     private final GeoJsonWriter geoJsonWriter = new GeoJsonWriter(4);
 
-    public CountryController(CountryService countryService) {
+    public CountryController(CountryService countryService, CountryProfileService countryProfileService) {
         this.countryService = countryService;
+        this.countryProfileService = countryProfileService;
         this.geoJsonWriter.setEncodeCRS(false);
     }
 
@@ -42,6 +44,11 @@ public class CountryController {
     @GetMapping("/{id}")
     public CountryResponse findById(@PathVariable Long id) {
         return CountryResponse.from(countryService.findById(id));
+    }
+
+    @GetMapping("/{id}/profile")
+    public CountryProfileResponse profile(@PathVariable Long id) {
+        return countryProfileService.buildProfile(id);
     }
 
     @GetMapping("/{id}/neighbors")
