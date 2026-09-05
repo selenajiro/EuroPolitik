@@ -7,12 +7,18 @@ import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
+import lombok.Setter;
 import org.locationtech.jts.geom.MultiPolygon;
 
 import java.time.LocalDateTime;
 
 @Entity
 @Table(name = "country")
+@Getter
+@Setter
+@NoArgsConstructor
 public class Country {
 
     @Id
@@ -46,34 +52,4 @@ public class Country {
 
     @Column(nullable = false)
     private LocalDateTime updatedAt;
-
-    public Long getId() { return id; }
-    public void setId(Long id) { this.id = id; }
-
-    public String getIsoCode() { return isoCode; }
-    public void setIsoCode(String isoCode) { this.isoCode = isoCode; }
-
-    public String getName() { return name; }
-    public void setName(String name) { this.name = name; }
-
-    public boolean isEuMember() { return euMember; }
-    public void setEuMember(boolean euMember) { this.euMember = euMember; }
-
-    public boolean isSchengenMember() { return schengenMember; }
-    public void setSchengenMember(boolean schengenMember) { this.schengenMember = schengenMember; }
-
-    public boolean isEurozoneMember() { return eurozoneMember; }
-    public void setEurozoneMember(boolean eurozoneMember) { this.eurozoneMember = eurozoneMember; }
-
-    public boolean isNatoMember() { return natoMember; }
-    public void setNatoMember(boolean natoMember) { this.natoMember = natoMember; }
-
-    public MultiPolygon getGeometry() { return geometry; }
-    public void setGeometry(MultiPolygon geometry) { this.geometry = geometry; }
-
-    public LocalDateTime getCreatedAt() { return createdAt; }
-    public void setCreatedAt(LocalDateTime createdAt) { this.createdAt = createdAt; }
-
-    public LocalDateTime getUpdatedAt() { return updatedAt; }
-    public void setUpdatedAt(LocalDateTime updatedAt) { this.updatedAt = updatedAt; }
 }

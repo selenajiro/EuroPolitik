@@ -11,11 +11,17 @@ import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
+import lombok.Setter;
 
 import java.time.LocalDateTime;
 
 @Entity
 @Table(name = "favorite_country")
+@Getter
+@Setter
+@NoArgsConstructor
 public class FavoriteCountry {
 
     @Id
@@ -32,16 +38,4 @@ public class FavoriteCountry {
 
     @Column(nullable = false)
     private LocalDateTime createdAt;
-
-    public Long getId() { return id; }
-    public void setId(Long id) { this.id = id; }
-
-    public UserAccount getUser() { return user; }
-    public void setUser(UserAccount user) { this.user = user; }
-
-    public Country getCountry() { return country; }
-    public void setCountry(Country country) { this.country = country; }
-
-    public LocalDateTime getCreatedAt() { return createdAt; }
-    public void setCreatedAt(LocalDateTime createdAt) { this.createdAt = createdAt; }
 }

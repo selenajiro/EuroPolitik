@@ -10,12 +10,18 @@ import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
+import lombok.Setter;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 
 @Entity
 @Table(name = "political_event")
+@Getter
+@Setter
+@NoArgsConstructor
 public class PoliticalEvent {
 
     @Id
@@ -49,34 +55,4 @@ public class PoliticalEvent {
 
     @Column(nullable = false)
     private LocalDateTime updatedAt;
-
-    public Long getId() { return id; }
-    public void setId(Long id) { this.id = id; }
-
-    public Country getCountry() { return country; }
-    public void setCountry(Country country) { this.country = country; }
-
-    public String getEventType() { return eventType; }
-    public void setEventType(String eventType) { this.eventType = eventType; }
-
-    public String getTitle() { return title; }
-    public void setTitle(String title) { this.title = title; }
-
-    public String getDescription() { return description; }
-    public void setDescription(String description) { this.description = description; }
-
-    public LocalDate getEventDate() { return eventDate; }
-    public void setEventDate(LocalDate eventDate) { this.eventDate = eventDate; }
-
-    public String getSourceName() { return sourceName; }
-    public void setSourceName(String sourceName) { this.sourceName = sourceName; }
-
-    public String getSourceUrl() { return sourceUrl; }
-    public void setSourceUrl(String sourceUrl) { this.sourceUrl = sourceUrl; }
-
-    public LocalDateTime getCreatedAt() { return createdAt; }
-    public void setCreatedAt(LocalDateTime createdAt) { this.createdAt = createdAt; }
-
-    public LocalDateTime getUpdatedAt() { return updatedAt; }
-    public void setUpdatedAt(LocalDateTime updatedAt) { this.updatedAt = updatedAt; }
 }

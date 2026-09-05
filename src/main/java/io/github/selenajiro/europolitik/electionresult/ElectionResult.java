@@ -11,12 +11,18 @@ import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
+import lombok.Setter;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
 @Entity
 @Table(name = "election_result")
+@Getter
+@Setter
+@NoArgsConstructor
 public class ElectionResult {
 
     @Id
@@ -43,28 +49,4 @@ public class ElectionResult {
 
     @Column(nullable = false)
     private LocalDateTime updatedAt;
-
-    public Long getId() { return id; }
-    public void setId(Long id) { this.id = id; }
-
-    public Election getElection() { return election; }
-    public void setElection(Election election) { this.election = election; }
-
-    public PoliticalParty getParty() { return party; }
-    public void setParty(PoliticalParty party) { this.party = party; }
-
-    public Long getVotes() { return votes; }
-    public void setVotes(Long votes) { this.votes = votes; }
-
-    public BigDecimal getVotePercentage() { return votePercentage; }
-    public void setVotePercentage(BigDecimal votePercentage) { this.votePercentage = votePercentage; }
-
-    public Integer getSeats() { return seats; }
-    public void setSeats(Integer seats) { this.seats = seats; }
-
-    public LocalDateTime getCreatedAt() { return createdAt; }
-    public void setCreatedAt(LocalDateTime createdAt) { this.createdAt = createdAt; }
-
-    public LocalDateTime getUpdatedAt() { return updatedAt; }
-    public void setUpdatedAt(LocalDateTime updatedAt) { this.updatedAt = updatedAt; }
 }

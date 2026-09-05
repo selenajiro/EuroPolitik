@@ -11,11 +11,17 @@ import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
+import lombok.Setter;
 
 import java.time.LocalDateTime;
 
 @Entity
 @Table(name = "saved_comparison")
+@Getter
+@Setter
+@NoArgsConstructor
 public class SavedComparison {
 
     @Id
@@ -36,19 +42,4 @@ public class SavedComparison {
 
     @Column(nullable = false)
     private LocalDateTime createdAt;
-
-    public Long getId() { return id; }
-    public void setId(Long id) { this.id = id; }
-
-    public UserAccount getUser() { return user; }
-    public void setUser(UserAccount user) { this.user = user; }
-
-    public Country getCountryA() { return countryA; }
-    public void setCountryA(Country countryA) { this.countryA = countryA; }
-
-    public Country getCountryB() { return countryB; }
-    public void setCountryB(Country countryB) { this.countryB = countryB; }
-
-    public LocalDateTime getCreatedAt() { return createdAt; }
-    public void setCreatedAt(LocalDateTime createdAt) { this.createdAt = createdAt; }
 }

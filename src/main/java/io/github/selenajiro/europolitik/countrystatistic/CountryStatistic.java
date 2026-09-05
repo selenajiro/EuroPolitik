@@ -10,12 +10,18 @@ import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
+import lombok.Setter;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
 @Entity
 @Table(name = "country_statistic")
+@Getter
+@Setter
+@NoArgsConstructor
 public class CountryStatistic {
 
     @Id
@@ -49,34 +55,4 @@ public class CountryStatistic {
 
     @Column(nullable = false)
     private LocalDateTime updatedAt;
-
-    public Long getId() { return id; }
-    public void setId(Long id) { this.id = id; }
-
-    public Country getCountry() { return country; }
-    public void setCountry(Country country) { this.country = country; }
-
-    public String getIndicator() { return indicator; }
-    public void setIndicator(String indicator) { this.indicator = indicator; }
-
-    public Integer getYear() { return year; }
-    public void setYear(Integer year) { this.year = year; }
-
-    public BigDecimal getValue() { return value; }
-    public void setValue(BigDecimal value) { this.value = value; }
-
-    public String getUnit() { return unit; }
-    public void setUnit(String unit) { this.unit = unit; }
-
-    public String getSourceName() { return sourceName; }
-    public void setSourceName(String sourceName) { this.sourceName = sourceName; }
-
-    public String getSourceUrl() { return sourceUrl; }
-    public void setSourceUrl(String sourceUrl) { this.sourceUrl = sourceUrl; }
-
-    public LocalDateTime getCreatedAt() { return createdAt; }
-    public void setCreatedAt(LocalDateTime createdAt) { this.createdAt = createdAt; }
-
-    public LocalDateTime getUpdatedAt() { return updatedAt; }
-    public void setUpdatedAt(LocalDateTime updatedAt) { this.updatedAt = updatedAt; }
 }
