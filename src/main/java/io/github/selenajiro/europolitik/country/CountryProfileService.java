@@ -54,4 +54,8 @@ public class CountryProfileService {
                 countryLanguageService.findAllByCountryId(countryId).stream().map(CountryLanguageResponse::from).toList()
         );
     }
+
+    public CountryComparisonResponse compare(Long idA, Long idB) {
+        return new CountryComparisonResponse(buildProfile(idA), buildProfile(idB));
+    }
 }

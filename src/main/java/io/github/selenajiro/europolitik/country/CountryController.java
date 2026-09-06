@@ -10,6 +10,7 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.RequestParam;
 
 import java.util.List;
 import java.util.Map;
@@ -98,5 +99,10 @@ public class CountryController {
         } catch (Exception e) {
             throw new RuntimeException("Failed to serialize GeoJSON response", e);
         }
+    }
+
+    @GetMapping("/compare")
+    public CountryComparisonResponse compare(@RequestParam Long a, @RequestParam Long b) {
+        return countryProfileService.compare(a, b);
     }
 }

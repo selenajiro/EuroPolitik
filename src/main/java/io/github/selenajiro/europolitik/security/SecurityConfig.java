@@ -30,7 +30,7 @@ public class SecurityConfig {
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers("/api/auth/**").permitAll()
-                        .requestMatchers("/map", "/", "/countries/**").permitAll()
+                        .requestMatchers("/map", "/", "/countries/**", "/compare").permitAll()
                         .requestMatchers("/api/ping").permitAll()
                         .requestMatchers("/api/countries/**", "/api/political-parties/**",
                                 "/api/elections/**", "/api/election-results/**", "/api/meps/**",
