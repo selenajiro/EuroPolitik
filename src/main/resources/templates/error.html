@@ -1,0 +1,24 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <title>EuroPolitik — Error</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&family=IBM+Plex+Sans:wght@400;500&display=swap" rel="stylesheet">
+    <style>
+        :root { --ocean: #1c2b3a; --ocean-deep: #121b24; --land-eu: #b8945f; --cream: #ede7da; }
+        body { margin: 0; background: var(--ocean); color: var(--cream); font-family: 'IBM Plex Sans', sans-serif; min-height: 100vh; display: flex; align-items: center; justify-content: center; }
+        .box { text-align: center; max-width: 420px; padding: 24px; }
+        .status { font-family: 'Source Serif 4', serif; font-size: 64px; color: var(--land-eu); margin: 0; }
+        .message { font-size: 15px; opacity: 0.8; margin: 12px 0 24px; }
+        a { color: var(--land-eu); text-decoration: none; font-size: 14px; }
+    </style>
+</head>
+<body>
+<div class="box">
+    <p class="status" th:text="${status}">404</p>
+    <p class="message" th:text="${message}">Not found</p>
+    <a href="/map">&larr; Back to the map</a>
+</div>
+</body>
+</html>
