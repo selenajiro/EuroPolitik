@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <title>EuroPolitik — My Account</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&family=IBM+Plex+Sans:wght@400;500&display=swap" rel="stylesheet">
+    <style>
+        :root { --ocean: #1c2b3a; --ocean-deep: #121b24; --land-eu: #b8945f; --cream: #ede7da; }
+        body { margin: 0; background: var(--ocean); color: var(--cream); font-family: 'IBM Plex Sans', sans-serif; min-height: 100vh; }
+        .wrap { max-width: 700px; margin: 0 auto; padding: 90px 24px 80px; }
+        h1 { font-family: 'Source Serif 4', serif; font-size: 32px; margin-bottom: 32px; }
+        section { margin-bottom: 40px; }
+        section h2 { font-family: 'Source Serif 4', serif; font-size: 20px; border-bottom: 1px solid rgba(237,231,218,0.15); padding-bottom: 8px; margin-bottom: 16px; }
+        .item { display: flex; justify-content: space-between; align-items: center; padding: 10px 0; border-bottom: 1px solid rgba(237,231,218,0.06); font-size: 14px; }
+        .item a { color: var(--cream); text-decoration: none; }
+        .item a:hover { color: var(--land-eu); }
+        .remove { color: #c97a7a; cursor: pointer; font-size: 12px; background: none; border: none; font-family: inherit; }
+        .empty { color: #6b7378; font-size: 14px; font-style: italic; }
+        .add-row { display: flex; gap: 8px; margin-top: 14px; }
+        select, button.add { font-family: 'IBM Plex Sans', sans-serif; font-size: 13px; padding: 7px 10px; border-radius: 3px; border: 1px solid rgba(237,231,218,0.25); background: var(--ocean-deep); color: var(--cream); }
+        button.add { background: var(--land-eu); color: var(--ocean-deep); font-weight: 500; cursor: pointer; border: none; }
+        .login-prompt { background: var(--ocean-deep); padding: 24px; border-radius: 4px; text-align: center; }
+        .login-prompt a { color: var(--land-eu); }
+    </style>
+</head>
+<body>
+<nav th:replace="~{fragments/nav :: nav}"></nav>
+<script src="/js/auth.js"></script>
+
+<div class="wrap">
+    <h1>My Account</h1>
+    <div id="content"></div>
+</div>
+
+<script>
+    let allCountries = [];
+
+    function countryOptions() {
+        return allCountries.map(c => `<option value="${c.id}">${c.name}</option>`).join('');
+    }
+
+    function loadFavorites() {
+        authFetch('/api/favorites')
+            .then(res => res.json())
+            .then(favorites => {
+                const list = favorites.length
+                    ? favorites.map(f => `
+                            <div class="item">
+                                <a href="/countries/${f.countryId}">${f.countryName}</a>
+                                <button class="remove" onclick="removeFavorite(${f.countryId})">Remove</button>
+                            </div>`).join('')
+                    : '<div class="empty">No favorites yet</div>';
+                document.getElementById('favorites-list').innerHTML = list;
+            });
+    }
+
+    function addFavorite() {
+        const countryId = document.getElementById('fav-country-select').value;
+        authFetch(`/api/favorites/${countryId}`, { method: 'POST' })
+            .then(res => { if (res.ok) loadFavorites(); });
+    }
+
+    function removeFavorite(countryId) {
+        authFetch(`/api/favorites/${countryId}`, { method: 'DELETE' })
+            .then(() => loadFavorites());
+    }
+
+    function loadComparisons() {
+        authFetch('/api/comparisons')
+            .then(res => res.json())
+            .then(comparisons => {
+                const list = comparisons.length
+                    ? comparisons.map(c => `
+                            <div class="item">
+                                <span>${c.countryAName} vs ${c.countryBName}</span>
+                                <button class="remove" onclick="removeComparison(${c.id})">Remove</button>
+                            </div>`).join('')
+                    : '<div class="empty">No saved comparisons yet</div>';
+                document.getElementById('comparisons-list').innerHTML = list;
+            });
+    }
+
+    function addComparison() {
+        const countryAId = document.getElementById('cmp-a-select').value;
+        const countryBId = document.getElementById('cmp-b-select').value;
+        if (countryAId === countryBId) return;
+
+        authFetch('/api/comparisons', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ countryAId: Number(countryAId), countryBId: Number(countryBId) })
+        }).then(res => { if (res.ok) loadComparisons(); });
+    }
+
+    function removeComparison(id) {
+        authFetch(`/api/comparisons/${id}`, { method: 'DELETE' })
+            .then(() => loadComparisons());
+    }
+
+    function renderLoggedIn() {
+        document.getElementById('content').innerHTML = `
+                <section>
+                    <h2>Favorite countries</h2>
+                    <div id="favorites-list"></div>
+                    <div class="add-row">
+                        <select id="fav-country-select">${countryOptions()}</select>
+                        <button class="add" onclick="addFavorite()">Add</button>
+                    </div>
+                </section>
+                <section>
+                    <h2>Saved comparisons</h2>
+                    <div id="comparisons-list"></div>
+                    <div class="add-row">
+                        <select id="cmp-a-select">${countryOptions()}</select>
+                        <select id="cmp-b-select">${countryOptions()}</select>
+                        <button class="add" onclick="addComparison()">Save</button>
+                    </div>
+                </section>
+            `;
+        loadFavorites();
+        loadComparisons();
+    }
+
+    fetch('/api/countries')
+        .then(res => res.json())
+        .then(data => {
+            allCountries = data;
+
+            if (!getToken()) {
+                document.getElementById('content').innerHTML =
+                    '<div class="login-prompt">You need to be logged in to see this. <a href="/login">Log in</a></div>';
+                return;
+            }
+
+            renderLoggedIn();
+        });
+</script>
+</body>
+</html>
