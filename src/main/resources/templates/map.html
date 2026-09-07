@@ -19,13 +19,6 @@
         #map { height: 100vh; width: 100%; background: var(--ocean); }
         .leaflet-container { background: var(--ocean); }
 
-        .site-title {
-            position: absolute; top: 20px; right: 24px; z-index: 1000;
-            font-family: 'Source Serif 4', serif; font-size: 22px; font-weight: 600;
-            color: var(--cream); text-shadow: 0 1px 6px rgba(0,0,0,0.5);
-            pointer-events: none;
-        }
-
         .legend {
             position: absolute; bottom: 24px; left: 24px; z-index: 1000;
             background: var(--ocean-deep); color: var(--cream);
@@ -44,6 +37,7 @@
         .country-popup .fact .label { color: #6b6b6b; }
         .country-popup .fact .value.yes { color: var(--land-eu); font-weight: 500; }
         .country-popup .fact .value.no { color: #b7b0a8; }
+        .country-popup a.profile-link { display: inline-block; margin-top: 8px; font-size: 12px; color: var(--ocean-deep); font-weight: 500; }
 
         .leaflet-popup-content-wrapper { background: var(--cream); border-radius: 4px; }
         .leaflet-popup-tip { background: var(--cream); }
@@ -57,7 +51,7 @@
     </style>
 </head>
 <body>
-<div class="site-title">EuroPolitik</div>
+<nav th:replace="~{fragments/nav :: nav}"></nav>
 <div id="map"></div>
 <div class="legend">
     <div><span class="swatch" style="background: #b8945f"></span>EU member</div>
@@ -103,6 +97,7 @@
                                 ${fact('Schengen', p.schengenMember)}
                                 ${fact('Eurozone', p.eurozoneMember)}
                                 ${fact('NATO', p.natoMember)}
+                                <a class="profile-link" href="/countries/${p.id}">Full profile &rarr;</a>
                             </div>
                         `);
                     lyr.on('mouseover', () => lyr.setStyle({ fillColor: '#7a3b4a' }));

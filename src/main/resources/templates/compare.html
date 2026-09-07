@@ -1,4 +1,5 @@
 <!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="en" xmlns:th="http://www.thymeleaf.org">
 <head>
     <meta charset="UTF-8">
@@ -11,8 +12,7 @@
             --land-eu: #b8945f; --cream: #ede7da;
         }
         body { margin: 0; background: var(--ocean); color: var(--cream); font-family: 'IBM Plex Sans', sans-serif; min-height: 100vh; }
-        .wrap { max-width: 1000px; margin: 0 auto; padding: 40px 24px 80px; }
-        a.back { color: var(--cream); opacity: 0.7; text-decoration: none; font-size: 14px; }
+        .wrap { max-width: 1000px; margin: 0 auto; padding: 90px 24px 80px; }
         h1 { font-family: 'Source Serif 4', serif; font-size: 32px; margin: 10px 0 24px; }
         .picker { display: flex; gap: 12px; align-items: center; margin-bottom: 32px; }
         select, button {
@@ -28,14 +28,14 @@
         .badge.yes { color: var(--land-eu); }
         .badge.no { color: #6b7378; }
         section { margin-bottom: 24px; }
-        section h3 { font-size: 14px; text-transform: none; opacity: 0.7; border-bottom: 1px solid rgba(237,231,218,0.15); padding-bottom: 6px; }
+        section h3 { font-size: 14px; opacity: 0.7; border-bottom: 1px solid rgba(237,231,218,0.15); padding-bottom: 6px; }
         .row { display: flex; justify-content: space-between; padding: 6px 0; font-size: 13px; }
         .empty { color: #6b7378; font-size: 13px; font-style: italic; }
     </style>
 </head>
 <body>
+<nav th:replace="~{fragments/nav :: nav}"></nav>
 <div class="wrap">
-    <a class="back" href="/map">&larr; Back to map</a>
     <h1>Compare countries</h1>
     <div class="picker">
         <select id="countryA"></select>
@@ -47,8 +47,6 @@
 </div>
 
 <script>
-    let countries = [];
-
     function badge(label, value) {
         return `<span class="badge ${value ? 'yes' : 'no'}">${label}</span>`;
     }
@@ -104,7 +102,6 @@
     fetch('/api/countries')
         .then(res => res.json())
         .then(data => {
-            countries = data;
             const options = data.map(c => `<option value="${c.id}">${c.name}</option>`).join('');
             document.getElementById('countryA').innerHTML = options;
             document.getElementById('countryB').innerHTML = options;
