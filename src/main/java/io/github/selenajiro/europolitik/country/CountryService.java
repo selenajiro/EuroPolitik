@@ -21,6 +21,14 @@ public class CountryService {
         return countryRepository.findById(id).orElseThrow();
     }
 
+    public List<CountryResponse> findAllProjected() {
+        return countryRepository.findAllProjected();
+    }
+
+    public CountryResponse findByIdProjected(Long id) {
+        return countryRepository.findByIdProjected(id).orElseThrow();
+    }
+
     public List<Country> findNeighbors(Long id) {
         return countryRepository.findNeighbors(id);
     }

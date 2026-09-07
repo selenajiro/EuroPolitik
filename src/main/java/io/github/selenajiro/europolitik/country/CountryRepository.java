@@ -4,6 +4,7 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 
 import java.util.List;
+import java.util.Optional;
 
 public interface CountryRepository extends JpaRepository<Country, Long> {
 
@@ -14,4 +15,14 @@ public interface CountryRepository extends JpaRepository<Country, Long> {
         ORDER BY c2.name
         """, nativeQuery = true)
     List<Country> findNeighbors(Long countryId);
+
+    @Query("SELECT new io.github.selenajiro.europolitik.country.CountryResponse(" +
+            "c.id, c.isoCode, c.name, c.euMember, c.schengenMember, c.eurozoneMember, c.natoMember, c.createdAt, c.updatedAt) " +
+            "FROM Country c")
+    List<CountryResponse> findAllProjected();
+
+    @Query("SELECT new io.github.selenajiro.europolitik.country.CountryResponse(" +
+            "c.id, c.isoCode, c.name, c.euMember, c.schengenMember, c.eurozoneMember, c.natoMember, c.createdAt, c.updatedAt) " +
+            "FROM Country c WHERE c.id = :id")
+    Optional<CountryResponse> findByIdProjected(Long id);
 }

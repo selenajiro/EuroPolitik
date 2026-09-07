@@ -9,8 +9,8 @@ import org.springframework.http.MediaType;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.RestController;
 
 import java.util.List;
 import java.util.Map;
@@ -29,6 +29,8 @@ public class CountryController {
     private final ObjectMapper objectMapper = new ObjectMapper();
     private final GeoJsonWriter geoJsonWriter = new GeoJsonWriter(4);
 
+    private volatile String cachedGeoJson;
+
     public CountryController(CountryService countryService, CountryProfileService countryProfileService) {
         this.countryService = countryService;
         this.countryProfileService = countryProfileService;
@@ -37,14 +39,12 @@ public class CountryController {
 
     @GetMapping
     public List<CountryResponse> findAll() {
-        return countryService.findAll().stream()
-                .map(CountryResponse::from)
-                .toList();
+        return countryService.findAllProjected();
     }
 
     @GetMapping("/{id}")
     public CountryResponse findById(@PathVariable Long id) {
-        return CountryResponse.from(countryService.findById(id));
+        return countryService.findByIdProjected(id);
     }
 
     @GetMapping("/{id}/profile")
@@ -52,21 +52,30 @@ public class CountryController {
         return countryProfileService.buildProfile(id);
     }
 
+    @GetMapping("/compare")
+    public CountryComparisonResponse compare(@RequestParam Long a, @RequestParam Long b) {
+        return countryProfileService.compare(a, b);
+    }
+
     @GetMapping("/{id}/neighbors")
     public CountryNeighborsResponse neighbors(@PathVariable Long id) {
-        Country country = countryService.findById(id);
+        CountryResponse country = countryService.findByIdProjected(id);
 
         List<CountryNeighborsResponse.NeighborSummary> inDataset = countryService.findNeighbors(id).stream()
                 .map(CountryNeighborsResponse.NeighborSummary::from)
                 .toList();
 
-        List<String> otherNeighbors = OTHER_REAL_WORLD_NEIGHBORS.getOrDefault(country.getIsoCode(), List.of());
+        List<String> otherNeighbors = OTHER_REAL_WORLD_NEIGHBORS.getOrDefault(country.isoCode(), List.of());
 
         return new CountryNeighborsResponse(inDataset, otherNeighbors);
     }
 
     @GetMapping(value = "/geojson", produces = MediaType.APPLICATION_JSON_VALUE)
     public String geoJson() {
+        if (cachedGeoJson != null) {
+            return cachedGeoJson;
+        }
+
         List<Country> countries = countryService.findAll();
 
         ObjectNode featureCollection = objectMapper.createObjectNode();
@@ -95,14 +104,10 @@ public class CountryController {
         }
 
         try {
-            return objectMapper.writeValueAsString(featureCollection);
+            cachedGeoJson = objectMapper.writeValueAsString(featureCollection);
+            return cachedGeoJson;
         } catch (Exception e) {
             throw new RuntimeException("Failed to serialize GeoJSON response", e);
         }
-    }
-
-    @GetMapping("/compare")
-    public CountryComparisonResponse compare(@RequestParam Long a, @RequestParam Long b) {
-        return countryProfileService.compare(a, b);
     }
 }
