@@ -3,6 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <title>EuroPolitik — My Account</title>
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&family=IBM+Plex+Sans:wght@400;500&display=swap" rel="stylesheet">
     <style>
@@ -15,6 +16,7 @@
         .item { display: flex; justify-content: space-between; align-items: center; padding: 10px 0; border-bottom: 1px solid rgba(237,231,218,0.06); font-size: 14px; }
         .item a { color: var(--cream); text-decoration: none; }
         .item a:hover { color: var(--land-eu); }
+        .item .side-link { color: var(--land-eu); font-size: 12px; margin-right: 14px; }
         .remove { color: #c97a7a; cursor: pointer; font-size: 12px; background: none; border: none; font-family: inherit; }
         .empty { color: #6b7378; font-size: 14px; font-style: italic; }
         .add-row { display: flex; gap: 8px; margin-top: 14px; }
@@ -58,12 +60,12 @@
     function addFavorite() {
         const countryId = document.getElementById('fav-country-select').value;
         authFetch(`/api/favorites/${countryId}`, { method: 'POST' })
-            .then(res => { if (res.ok) loadFavorites(); });
+            .then(res => { if (res.ok) { showFlash('Added ✓'); loadFavorites(); } });
     }
 
     function removeFavorite(countryId) {
         authFetch(`/api/favorites/${countryId}`, { method: 'DELETE' })
-            .then(() => loadFavorites());
+            .then(() => { showFlash('Removed'); loadFavorites(); });
     }
 
     function loadComparisons() {
@@ -73,8 +75,15 @@
                 const list = comparisons.length
                     ? comparisons.map(c => `
                             <div class="item">
-                                <span>${c.countryAName} vs ${c.countryBName}</span>
-                                <button class="remove" onclick="removeComparison(${c.id})">Remove</button>
+                                <span>
+                                    <a href="/countries/${c.countryAId}">${c.countryAName}</a>
+                                    vs
+                                    <a href="/countries/${c.countryBId}">${c.countryBName}</a>
+                                </span>
+                                <span>
+                                    <a class="side-link" href="/compare?a=${c.countryAId}&b=${c.countryBId}">View side-by-side</a>
+                                    <button class="remove" onclick="removeComparison(${c.id})">Remove</button>
+                                </span>
                             </div>`).join('')
                     : '<div class="empty">No saved comparisons yet</div>';
                 document.getElementById('comparisons-list').innerHTML = list;
@@ -90,12 +99,12 @@
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ countryAId: Number(countryAId), countryBId: Number(countryBId) })
-        }).then(res => { if (res.ok) loadComparisons(); });
+        }).then(res => { if (res.ok) { showFlash('Saved ✓'); loadComparisons(); } });
     }
 
     function removeComparison(id) {
         authFetch(`/api/comparisons/${id}`, { method: 'DELETE' })
-            .then(() => loadComparisons());
+            .then(() => { showFlash('Removed'); loadComparisons(); });
     }
 
     function renderLoggedIn() {
