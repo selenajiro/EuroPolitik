@@ -16,7 +16,8 @@
         }
         body { margin: 0; background: var(--ocean); color: var(--cream); font-family: 'IBM Plex Sans', sans-serif; min-height: 100vh; }
         .wrap { max-width: 860px; margin: 0 auto; padding: 90px 24px 80px; }
-        h1 { font-family: 'Source Serif 4', serif; font-size: 36px; margin: 10px 0 6px; }
+        .title-row { display: flex; align-items: center; gap: 14px; margin: 10px 0 6px; }
+        h1 { font-family: 'Source Serif 4', serif; font-size: 36px; margin: 0; }
         .badges { display: flex; gap: 8px; margin-bottom: 32px; }
         .badge { font-size: 12px; padding: 4px 10px; border-radius: 3px; background: var(--ocean-deep); }
         .badge.yes { color: var(--land-eu); }
@@ -44,18 +45,23 @@
         return `<div class="row"><span class="muted">${label}</span><span>${value}</span></div>`;
     }
 
-    fetch(`/api/countries/${id}/profile`)
-        .then(res => {
+    Promise.all([
+        fetch(`/api/countries/${id}/profile`).then(res => {
             if (!res.ok) throw new Error(`Server responded with status ${res.status}`);
             return res.json();
-        })
-        .then(data => {
+        }),
+        fetchFavoriteIds()
+    ])
+        .then(([data, favoriteIds]) => {
             const c = data.country;
             document.getElementById('loading').remove();
 
             const wrap = document.getElementById('content');
             wrap.insertAdjacentHTML('beforeend', `
-                    <h1>${c.name}</h1>
+                    <div class="title-row">
+                        <h1>${c.name}</h1>
+                        ${starButton(c.id, favoriteIds.has(c.id))}
+                    </div>
                     <div class="badges">
                         <span class="badge ${c.euMember ? 'yes' : 'no'}">EU</span>
                         <span class="badge ${c.schengenMember ? 'yes' : 'no'}">Schengen</span>

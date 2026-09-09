@@ -42,9 +42,10 @@
         .legend .swatch { width: 12px; height: 12px; border-radius: 2px; }
 
         .country-popup { font-family: 'IBM Plex Sans', sans-serif; min-width: 180px; }
+        .country-popup .popup-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
         .country-popup h3 {
             font-family: 'Source Serif 4', serif; font-weight: 600; font-size: 18px;
-            margin: 0 0 10px; color: var(--ocean-deep);
+            margin: 0; color: var(--ocean-deep);
         }
         .country-popup .fact { display: flex; justify-content: space-between; font-size: 13px; padding: 3px 0; }
         .country-popup .fact .label { color: #6b6b6b; }
@@ -86,44 +87,49 @@
         return `<div class="fact"><span class="label">${label}</span><span class="value ${value ? 'yes' : 'no'}">${value ? 'Yes' : 'No'}</span></div>`;
     }
 
-    fetch('/api/countries/geojson')
-        .then(res => {
-            if (!res.ok) throw new Error(`Server responded with status ${res.status}`);
-            return res.json();
-        })
-        .then(data => {
-            if (!data.features || data.features.length === 0) {
-                throw new Error('Response had no country features');
-            }
-            L.geoJSON(data, {
-                style: feature => ({
-                    color: '#1c2b3a',
-                    weight: 1,
-                    fillColor: feature.properties.euMember ? '#b8945f' : '#9c9186',
-                    fillOpacity: 0.9
-                }),
-                onEachFeature: (feature, lyr) => {
-                    const p = feature.properties;
-                    lyr.bindPopup(`
-                            <div class="country-popup">
-                                <h3>${p.name}</h3>
-                                ${fact('EU member', p.euMember)}
-                                ${fact('Schengen', p.schengenMember)}
-                                ${fact('Eurozone', p.eurozoneMember)}
-                                ${fact('NATO', p.natoMember)}
-                                <a class="profile-link" href="/countries/${p.id}">Full profile &rarr;</a>
-                            </div>
-                        `);
-                    lyr.on('mouseover', () => lyr.setStyle({ fillColor: '#7a3b4a' }));
-                    lyr.on('mouseout', () => lyr.setStyle({ fillColor: p.euMember ? '#b8945f' : '#9c9186' }));
+    fetchFavoriteIds().then(favoriteIds => {
+        fetch('/api/countries/geojson')
+            .then(res => {
+                if (!res.ok) throw new Error(`Server responded with status ${res.status}`);
+                return res.json();
+            })
+            .then(data => {
+                if (!data.features || data.features.length === 0) {
+                    throw new Error('Response had no country features');
                 }
-            }).addTo(map);
-        })
-        .catch(err => {
-            document.body.insertAdjacentHTML('beforeend',
-                `<div class="load-error">Couldn't load country data: ${err.message}</div>`);
-            console.error('GeoJSON fetch failed:', err);
-        });
+                L.geoJSON(data, {
+                    style: feature => ({
+                        color: '#1c2b3a',
+                        weight: 1,
+                        fillColor: feature.properties.euMember ? '#b8945f' : '#9c9186',
+                        fillOpacity: 0.9
+                    }),
+                    onEachFeature: (feature, lyr) => {
+                        const p = feature.properties;
+                        lyr.bindPopup(`
+                                <div class="country-popup">
+                                    <div class="popup-header">
+                                        <h3>${p.name}</h3>
+                                        ${starButton(p.id, favoriteIds.has(p.id))}
+                                    </div>
+                                    ${fact('EU member', p.euMember)}
+                                    ${fact('Schengen', p.schengenMember)}
+                                    ${fact('Eurozone', p.eurozoneMember)}
+                                    ${fact('NATO', p.natoMember)}
+                                    <a class="profile-link" href="/countries/${p.id}">Full profile &rarr;</a>
+                                </div>
+                            `);
+                        lyr.on('mouseover', () => lyr.setStyle({ fillColor: '#7a3b4a' }));
+                        lyr.on('mouseout', () => lyr.setStyle({ fillColor: p.euMember ? '#b8945f' : '#9c9186' }));
+                    }
+                }).addTo(map);
+            })
+            .catch(err => {
+                document.body.insertAdjacentHTML('beforeend',
+                    `<div class="load-error">Couldn't load country data: ${err.message}</div>`);
+                console.error('GeoJSON fetch failed:', err);
+            });
+    });
 </script>
 </body>
 </html>

@@ -32,6 +32,8 @@
         .row { display: flex; justify-content: space-between; padding: 6px 0; font-size: 13px; }
         .empty { color: #6b7378; font-size: 13px; font-style: italic; }
         .error { color: #c97a7a; font-size: 14px; }
+        .save-row { grid-column: 1 / -1; margin-top: 4px; }
+        .save-row a { color: var(--land-eu); font-size: 13px; text-decoration: none; }
     </style>
 </head>
 <body>
@@ -86,6 +88,23 @@
             `;
     }
 
+    function saveComparisonButton(a, b) {
+        if (!getToken()) {
+            return `<div class="save-row"><a href="/login">Log in to save this comparison</a></div>`;
+        }
+        return `<div class="save-row"><button onclick="saveThisComparison(${a}, ${b})">Save this comparison</button></div>`;
+    }
+
+    function saveThisComparison(a, b) {
+        authFetch('/api/comparisons', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ countryAId: Number(a), countryBId: Number(b) })
+        }).then(res => {
+            if (res.ok) showFlash('Saved ✓');
+        });
+    }
+
     function runCompare() {
         const a = document.getElementById('countryA').value;
         const b = document.getElementById('countryB').value;
@@ -104,7 +123,7 @@
                 return res.json();
             })
             .then(data => {
-                results.innerHTML = renderColumn(data.countryA) + renderColumn(data.countryB);
+                results.innerHTML = renderColumn(data.countryA) + renderColumn(data.countryB) + saveComparisonButton(a, b);
             })
             .catch(err => {
                 results.innerHTML = `<p class="error">Couldn't load comparison: ${err.message}</p>`;

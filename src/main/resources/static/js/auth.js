@@ -57,6 +57,44 @@ function showFlash(message) {
     setTimeout(() => flash.remove(), 1800);
 }
 
+//  Favorites: shared across map, country detail, and account pages
+
+function fetchFavoriteIds() {
+    if (!getToken()) return Promise.resolve(new Set());
+    return authFetch('/api/favorites')
+        .then(res => res.ok ? res.json() : [])
+        .then(favorites => new Set(favorites.map(f => f.countryId)));
+}
+
+function toggleFavorite(countryId, isFavorited) {
+    const method = isFavorited ? 'DELETE' : 'POST';
+    return authFetch(`/api/favorites/${countryId}`, { method })
+        .then(res => {
+            if (!res.ok) throw new Error('Failed to update favorite');
+            showFlash(isFavorited ? 'Removed from favorites' : 'Added to favorites ✓');
+            return !isFavorited;
+        });
+}
+
+function starButton(countryId, favorited) {
+    return `<span class="star-btn" onclick="handleStarClick(event, ${countryId})" style="cursor:pointer; font-size:18px; color:${favorited ? '#b8945f' : '#5a6570'};">${favorited ? '\u2605' : '\u2606'}</span>`;
+}
+
+function handleStarClick(event, countryId) {
+    event.preventDefault();
+    event.stopPropagation();
+    if (!getToken()) {
+        window.location.href = '/login';
+        return;
+    }
+    const el = event.currentTarget;
+    const currentlyFavorited = el.textContent.trim() === '\u2605';
+    toggleFavorite(countryId, currentlyFavorited).then(newState => {
+        el.textContent = newState ? '\u2605' : '\u2606';
+        el.style.color = newState ? '#b8945f' : '#5a6570';
+    });
+}
+
 document.addEventListener('DOMContentLoaded', () => {
     renderAuthNav();
     highlightActiveNav();
