@@ -4,6 +4,11 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
+import org.locationtech.jts.geom.Coordinate;
+import org.locationtech.jts.geom.Geometry;
+import org.locationtech.jts.geom.GeometryFactory;
+import org.locationtech.jts.geom.Polygon;
+import org.locationtech.jts.geom.PrecisionModel;
 import org.locationtech.jts.io.geojson.GeoJsonWriter;
 import org.springframework.http.MediaType;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -29,12 +34,24 @@ public class CountryController {
     private final ObjectMapper objectMapper = new ObjectMapper();
     private final GeoJsonWriter geoJsonWriter = new GeoJsonWriter(4);
 
+    private final Geometry europeClip;
+
     private volatile String cachedGeoJson;
 
     public CountryController(CountryService countryService, CountryProfileService countryProfileService) {
         this.countryService = countryService;
         this.countryProfileService = countryProfileService;
         this.geoJsonWriter.setEncodeCRS(false);
+
+        GeometryFactory geometryFactory = new GeometryFactory(new PrecisionModel(), 4326);
+        Coordinate[] clipCoords = {
+                new Coordinate(-25, 34),
+                new Coordinate(45, 34),
+                new Coordinate(45, 71),
+                new Coordinate(-25, 71),
+                new Coordinate(-25, 34)
+        };
+        this.europeClip = geometryFactory.createPolygon(clipCoords);
     }
 
     @GetMapping
@@ -96,7 +113,8 @@ public class CountryController {
             properties.put("natoMember", country.isNatoMember());
 
             try {
-                JsonNode geometryNode = objectMapper.readTree(geoJsonWriter.write(country.getGeometry()));
+                Geometry displayGeometry = country.getGeometry().buffer(0).intersection(europeClip);
+                JsonNode geometryNode = objectMapper.readTree(geoJsonWriter.write(displayGeometry));
                 feature.set("geometry", geometryNode);
             } catch (Exception e) {
                 throw new RuntimeException("Failed to convert geometry for " + country.getIsoCode(), e);

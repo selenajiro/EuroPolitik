@@ -32,6 +32,7 @@ public class SecurityConfig {
                         .requestMatchers("/api/auth/**").permitAll()
                         .requestMatchers("/map", "/", "/countries/**", "/compare", "/login", "/account", "/timeline").permitAll()
                         .requestMatchers("/js/**").permitAll()
+                        .requestMatchers("/js/**", "/favicon.svg").permitAll()
                         .requestMatchers("/api/ping").permitAll()
                         .requestMatchers("/api/countries/**", "/api/political-parties/**",
                                 "/api/elections/**", "/api/election-results/**", "/api/meps/**",
