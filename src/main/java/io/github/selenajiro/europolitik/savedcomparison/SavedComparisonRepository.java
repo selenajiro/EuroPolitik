@@ -12,4 +12,6 @@ public interface SavedComparisonRepository extends JpaRepository<SavedComparison
     List<SavedComparison> findAllByUsername(String username);
 
     Optional<SavedComparison> findByIdAndUserUsername(Long id, String username);
+
+    boolean existsByUserUsernameAndCountryAIdAndCountryBId(String username, Long countryAId, Long countryBId);
 }

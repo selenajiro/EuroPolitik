@@ -37,9 +37,16 @@ public class SavedComparisonService {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Cannot compare a country with itself");
         }
 
+        Long normalizedA = Math.min(countryAId, countryBId);
+        Long normalizedB = Math.max(countryAId, countryBId);
+
+        if (savedComparisonRepository.existsByUserUsernameAndCountryAIdAndCountryBId(username, normalizedA, normalizedB)) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "This comparison is already saved");
+        }
+
         UserAccount user = userAccountRepository.findByUsername(username).orElseThrow();
-        Country countryA = countryRepository.findById(countryAId).orElseThrow();
-        Country countryB = countryRepository.findById(countryBId).orElseThrow();
+        Country countryA = countryRepository.findById(normalizedA).orElseThrow();
+        Country countryB = countryRepository.findById(normalizedB).orElseThrow();
 
         SavedComparison comparison = new SavedComparison();
         comparison.setUser(user);

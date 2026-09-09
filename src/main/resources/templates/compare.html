@@ -101,7 +101,11 @@
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ countryAId: Number(a), countryBId: Number(b) })
         }).then(res => {
-            if (res.ok) showFlash('Saved ✓');
+            if (res.ok) {
+                showFlash('Saved ✓');
+            } else if (res.status === 409) {
+                showFlash('Already saved');
+            }
         });
     }
 
