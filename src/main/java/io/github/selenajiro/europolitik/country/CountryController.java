@@ -7,7 +7,7 @@ import com.fasterxml.jackson.databind.node.ObjectNode;
 import org.locationtech.jts.geom.Coordinate;
 import org.locationtech.jts.geom.Geometry;
 import org.locationtech.jts.geom.GeometryFactory;
-import org.locationtech.jts.geom.Polygon;
+import org.locationtech.jts.geom.Point;
 import org.locationtech.jts.geom.PrecisionModel;
 import org.locationtech.jts.io.geojson.GeoJsonWriter;
 import org.springframework.http.MediaType;
@@ -87,6 +87,13 @@ public class CountryController {
         return new CountryNeighborsResponse(inDataset, otherNeighbors);
     }
 
+    @GetMapping("/{id}/nearby")
+    public List<CountryNeighborsResponse.NeighborSummary> nearby(@PathVariable Long id) {
+        return countryService.findClosestCountries(id).stream()
+                .map(CountryNeighborsResponse.NeighborSummary::from)
+                .toList();
+    }
+
     @GetMapping(value = "/geojson", produces = MediaType.APPLICATION_JSON_VALUE)
     public String geoJson() {
         if (cachedGeoJson != null) {
@@ -111,6 +118,10 @@ public class CountryController {
             properties.put("schengenMember", country.isSchengenMember());
             properties.put("eurozoneMember", country.isEurozoneMember());
             properties.put("natoMember", country.isNatoMember());
+
+            Point centroid = country.getGeometry().getCentroid();
+            properties.put("centroidLat", centroid.getY());
+            properties.put("centroidLng", centroid.getX());
 
             try {
                 Geometry displayGeometry = country.getGeometry().buffer(0).intersection(europeClip);

@@ -16,6 +16,17 @@ public interface CountryRepository extends JpaRepository<Country, Long> {
         """, nativeQuery = true)
     List<Country> findNeighbors(Long countryId);
 
+    @Query(value = """
+        SELECT c2.* FROM country c1, country c2
+        WHERE c1.id = :countryId AND c2.id <> :countryId
+        ORDER BY c1.geometry <-> c2.geometry
+        LIMIT 5
+        """, nativeQuery = true)
+    List<Country> findClosestCountries(Long countryId);
+
+    @Query(value = "SELECT ST_Area(geometry::geography) / 1000000.0 FROM country WHERE id = :id", nativeQuery = true)
+    Double findAreaSquareKm(Long id);
+
     @Query("SELECT new io.github.selenajiro.europolitik.country.CountryResponse(" +
             "c.id, c.isoCode, c.name, c.euMember, c.schengenMember, c.eurozoneMember, c.natoMember, c.createdAt, c.updatedAt) " +
             "FROM Country c")

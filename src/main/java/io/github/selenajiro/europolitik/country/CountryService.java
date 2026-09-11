@@ -32,4 +32,12 @@ public class CountryService {
     public List<Country> findNeighbors(Long id) {
         return countryRepository.findNeighbors(id);
     }
+
+    public List<Country> findClosestCountries(Long id) {
+        return countryRepository.findClosestCountries(id);
+    }
+
+    public Double findAreaSquareKm(Long id) {
+        return countryRepository.findAreaSquareKm(id);
+    }
 }

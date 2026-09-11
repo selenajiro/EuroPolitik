@@ -11,6 +11,7 @@ import java.util.List;
 
 public record CountryProfileResponse(
         CountryResponse country,
+        Double areaSquareKm,
         List<PoliticalPartyResponse> politicalParties,
         List<ElectionResponse> elections,
         List<MepResponse> meps,

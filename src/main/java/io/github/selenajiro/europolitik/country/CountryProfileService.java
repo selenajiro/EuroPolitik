@@ -43,9 +43,11 @@ public class CountryProfileService {
 
     public CountryProfileResponse buildProfile(Long countryId) {
         CountryResponse country = countryService.findByIdProjected(countryId);
+        Double areaSquareKm = countryService.findAreaSquareKm(countryId);
 
         return new CountryProfileResponse(
                 country,
+                areaSquareKm,
                 politicalPartyService.findAllByCountryId(countryId).stream().map(PoliticalPartyResponse::from).toList(),
                 electionService.findAllByCountryId(countryId).stream().map(ElectionResponse::from).toList(),
                 mepService.findAllByCountryId(countryId).stream().map(MepResponse::from).toList(),
