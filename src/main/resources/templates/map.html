@@ -48,6 +48,18 @@
             color: var(--ocean-deep) !important;
         }
 
+        .layer-picker {
+            position: absolute; top: 580px; left: 24px; z-index: 1000;
+            background: var(--ocean-deep); border-radius: 3px; padding: 4px;
+            display: flex; gap: 2px; box-shadow: 0 4px 20px rgba(0,0,0,0.35);
+        }
+        .layer-btn {
+            font-family: 'IBM Plex Sans', sans-serif; font-size: 12px; padding: 6px 10px;
+            border: none; background: transparent; color: var(--cream); opacity: 0.6;
+            cursor: pointer; border-radius: 2px;
+        }
+        .layer-btn.active { opacity: 1; background: rgba(184,148,95,0.2); color: var(--land-eu); }
+
         .legend {
             position: absolute; bottom: 24px; left: 24px; z-index: 1000;
             background: var(--ocean-deep); color: var(--cream);
@@ -92,9 +104,16 @@
     </aside>
 </div>
 
+<div class="layer-picker">
+    <button class="layer-btn active" data-layer="eu" onclick="switchLayer('eu')">EU</button>
+    <button class="layer-btn" data-layer="schengen" onclick="switchLayer('schengen')">Schengen</button>
+    <button class="layer-btn" data-layer="eurozone" onclick="switchLayer('eurozone')">Eurozone</button>
+    <button class="layer-btn" data-layer="nato" onclick="switchLayer('nato')">NATO</button>
+</div>
+
 <div class="legend">
-    <div><span class="swatch" style="background: #b8945f"></span>EU member</div>
-    <div><span class="swatch" style="background: #9c9186"></span>Non-EU</div>
+    <div><span class="swatch" style="background: #b8945f"></span><span id="legend-active-label">EU member</span></div>
+    <div><span class="swatch" style="background: #9c9186"></span><span id="legend-inactive-label">Non-EU</span></div>
 </div>
 
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
@@ -114,8 +133,91 @@
         map.fitBounds(europeBounds);
     }, 100);
 
+    const LAYERS = {
+        eu: { label: 'EU member', otherLabel: 'Non-EU', property: 'euMember' },
+        schengen: { label: 'Schengen member', otherLabel: 'Non-Schengen', property: 'schengenMember' },
+        eurozone: { label: 'Eurozone member', otherLabel: 'Non-Eurozone', property: 'eurozoneMember' },
+        nato: { label: 'NATO member', otherLabel: 'Non-NATO', property: 'natoMember' }
+    };
+    let currentLayer = 'eu';
+
+    const MICRO_COUNTRY_CODES = ['VA', 'SM', 'MC', 'LI', 'AD', 'MT'];
+
+    let geoJsonLayer = null;
+    let microMarkers = [];
+
     function fact(label, value) {
         return `<div class="fact"><span class="label">${label}</span><span class="value ${value ? 'yes' : 'no'}">${value ? 'Yes' : 'No'}</span></div>`;
+    }
+
+    function buildPopupContent(p, isFavorited) {
+        return `
+                <div class="country-popup">
+                    <div class="popup-header">
+                        <h3>${p.name}</h3>
+                        ${starButton(p.id, isFavorited)}
+                    </div>
+                    ${fact('EU member', p.euMember)}
+                    ${fact('Schengen', p.schengenMember)}
+                    ${fact('Eurozone', p.eurozoneMember)}
+                    ${fact('NATO', p.natoMember)}
+                    <a class="profile-link" href="/countries/${p.id}">Full profile &rarr;</a>
+                </div>
+            `;
+    }
+
+    function styleForFeature(feature) {
+        const isActive = feature.properties[LAYERS[currentLayer].property];
+        return {
+            color: '#1c2b3a',
+            weight: 1,
+            fillColor: isActive ? '#b8945f' : '#9c9186',
+            fillOpacity: 0.9
+        };
+    }
+
+    function updateLegend() {
+        document.getElementById('legend-active-label').textContent = LAYERS[currentLayer].label;
+        document.getElementById('legend-inactive-label').textContent = LAYERS[currentLayer].otherLabel;
+    }
+
+    function switchLayer(layerKey) {
+        currentLayer = layerKey;
+
+        document.querySelectorAll('.layer-btn').forEach(btn => {
+            btn.classList.toggle('active', btn.dataset.layer === layerKey);
+        });
+
+        if (geoJsonLayer) {
+            geoJsonLayer.setStyle(styleForFeature);
+        }
+
+        microMarkers.forEach(({ marker, properties }) => {
+            marker.setStyle({
+                fillColor: properties[LAYERS[layerKey].property] ? '#b8945f' : '#9c9186'
+            });
+        });
+
+        updateLegend();
+    }
+
+    function addMicroMarkers(data, favoriteIds) {
+        data.features.forEach(feature => {
+            const p = feature.properties;
+            if (!MICRO_COUNTRY_CODES.includes(p.isoCode)) return;
+            if (p.centroidLat == null || p.centroidLng == null) return;
+
+            const marker = L.circleMarker([p.centroidLat, p.centroidLng], {
+                radius: 6,
+                color: '#ede7da',
+                weight: 1.5,
+                fillColor: p[LAYERS[currentLayer].property] ? '#b8945f' : '#9c9186',
+                fillOpacity: 1
+            }).addTo(map);
+
+            marker.bindPopup(buildPopupContent(p, favoriteIds.has(p.id)));
+            microMarkers.push({ marker, properties: p });
+        });
     }
 
     fetchFavoriteIds().then(favoriteIds => {
@@ -128,32 +230,17 @@
                 if (!data.features || data.features.length === 0) {
                     throw new Error('Response had no country features');
                 }
-                L.geoJSON(data, {
-                    style: feature => ({
-                        color: '#1c2b3a',
-                        weight: 1,
-                        fillColor: feature.properties.euMember ? '#b8945f' : '#9c9186',
-                        fillOpacity: 0.9
-                    }),
+                geoJsonLayer = L.geoJSON(data, {
+                    style: styleForFeature,
                     onEachFeature: (feature, lyr) => {
                         const p = feature.properties;
-                        lyr.bindPopup(`
-                                <div class="country-popup">
-                                    <div class="popup-header">
-                                        <h3>${p.name}</h3>
-                                        ${starButton(p.id, favoriteIds.has(p.id))}
-                                    </div>
-                                    ${fact('EU member', p.euMember)}
-                                    ${fact('Schengen', p.schengenMember)}
-                                    ${fact('Eurozone', p.eurozoneMember)}
-                                    ${fact('NATO', p.natoMember)}
-                                    <a class="profile-link" href="/countries/${p.id}">Full profile &rarr;</a>
-                                </div>
-                            `);
+                        lyr.bindPopup(buildPopupContent(p, favoriteIds.has(p.id)));
                         lyr.on('mouseover', () => lyr.setStyle({ fillColor: '#7a3b4a' }));
-                        lyr.on('mouseout', () => lyr.setStyle({ fillColor: p.euMember ? '#b8945f' : '#9c9186' }));
+                        lyr.on('mouseout', () => lyr.setStyle({ fillColor: p[LAYERS[currentLayer].property] ? '#b8945f' : '#9c9186' }));
                     }
                 }).addTo(map);
+
+                addMicroMarkers(data, favoriteIds);
             })
             .catch(err => {
                 document.body.insertAdjacentHTML('beforeend',
