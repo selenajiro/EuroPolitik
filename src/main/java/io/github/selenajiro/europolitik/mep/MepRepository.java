@@ -16,4 +16,6 @@ public interface MepRepository extends JpaRepository<Mep, Long> {
 
     @Query("SELECT m FROM Mep m JOIN FETCH m.country WHERE m.country.id = :countryId")
     List<Mep> findAllByCountryId(Long countryId);
+
+    Optional<Mep> findByEpMemberId(Long epMemberId);
 }

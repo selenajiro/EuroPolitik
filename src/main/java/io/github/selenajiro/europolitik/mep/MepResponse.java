@@ -5,6 +5,7 @@ import java.time.LocalDateTime;
 
 public record MepResponse(
         Long id,
+        Long epMemberId,
         String fullName,
         String nationalParty,
         String politicalGroup,
@@ -21,6 +22,7 @@ public record MepResponse(
     public static MepResponse from(Mep mep) {
         return new MepResponse(
                 mep.getId(),
+                mep.getEpMemberId(),
                 mep.getFullName(),
                 mep.getNationalParty(),
                 mep.getPoliticalGroup(),

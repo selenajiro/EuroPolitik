@@ -28,6 +28,12 @@ public class Mep {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
+    // Stable external key from the EP Open Data API, used to detect
+    // whether an incoming record is a new MEP or an update to one we
+    // already imported. Null for the old fake seed rows.
+    @Column(unique = true)
+    private Long epMemberId;
+
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "country_id", nullable = false)
     private Country country;
