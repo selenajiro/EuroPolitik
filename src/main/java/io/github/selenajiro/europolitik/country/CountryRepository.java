@@ -8,6 +8,8 @@ import java.util.Optional;
 
 public interface CountryRepository extends JpaRepository<Country, Long> {
 
+    Optional<Country> findByIsoCode(String isoCode);
+
     @Query(value = """
         SELECT c2.* FROM country c1
         JOIN country c2 ON ST_Intersects(c1.geometry, c2.geometry) AND c1.id <> c2.id
