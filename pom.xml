@@ -55,6 +55,10 @@
 			<artifactId>spring-boot-jackson2</artifactId>
 		</dependency>
 		<dependency>
+			<groupId>org.springframework.boot</groupId>
+			<artifactId>spring-boot-restclient</artifactId>
+		</dependency>
+		<dependency>
 			<groupId>org.locationtech.jts.io</groupId>
 			<artifactId>jts-io-common</artifactId>
 			<version>1.20.0</version>
@@ -131,11 +135,6 @@
 		<dependency>
 			<groupId>org.springframework.boot</groupId>
 			<artifactId>spring-boot-resttestclient</artifactId>
-			<scope>test</scope>
-		</dependency>
-		<dependency>
-			<groupId>org.springframework.boot</groupId>
-			<artifactId>spring-boot-restclient</artifactId>
 			<scope>test</scope>
 		</dependency>
 	</dependencies>
