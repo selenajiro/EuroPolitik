@@ -1,0 +1,1 @@
+ALTER TABLE country_statistic ADD CONSTRAINT uk_country_statistic_country_indicator_year UNIQUE (country_id, indicator, year);

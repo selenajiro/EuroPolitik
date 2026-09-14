@@ -16,4 +16,6 @@ public interface CountryStatisticRepository extends JpaRepository<CountryStatist
 
     @Query("SELECT s FROM CountryStatistic s JOIN FETCH s.country WHERE s.country.id = :countryId")
     List<CountryStatistic> findAllByCountryId(Long countryId);
+
+    Optional<CountryStatistic> findByCountryIdAndIndicatorAndYear(Long countryId, String indicator, Integer year);
 }
