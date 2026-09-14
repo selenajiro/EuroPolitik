@@ -17,13 +17,15 @@ public class MepImportMapper {
     // EP political group codes -> full names, 10th parliamentary term.
     private static final Map<String, String> POLITICAL_GROUPS = Map.ofEntries(
             Map.entry("PPE", "European People's Party (Christian Democrats)"),
-            Map.entry("S-D", "Progressive Alliance of Socialists and Democrats"),
+            Map.entry("S&D", "Progressive Alliance of Socialists and Democrats"),
             Map.entry("RENEW", "Renew Europe"),
-            Map.entry("VERTS-ALE", "Greens/European Free Alliance"),
+            Map.entry("Verts/ALE", "Greens/European Free Alliance"),
             Map.entry("ECR", "European Conservatives and Reformists"),
             Map.entry("THE-LEFT", "The Left in the European Parliament - GUE/NGL"),
-            Map.entry("ID", "Identity and Democracy"),
-            Map.entry("NI", "Non-attached Members")
+            Map.entry("PfE", "Patriots for Europe"),
+            Map.entry("ESN", "Europe of Sovereign Nations"),
+            Map.entry("NI", "Non-attached Members"),
+            Map.entry("ID", "Identity and Democracy (defunct since July 2024)")
     );
 
     // The EP API uses "UK" for the United Kingdom; our Country table uses
