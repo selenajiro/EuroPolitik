@@ -17,8 +17,14 @@ public class EurostatImportJob {
     }
 
     @Scheduled(cron = "${europolitik.import.eurostat.population.cron:0 0 3 * * MON}")
-    public void run() {
+    public void importPopulation() {
         log.info("Starting scheduled Eurostat population import");
-        eurostatImportService.importPopulation();
+        eurostatImportService.importIndicator(EurostatIndicators.POPULATION);
+    }
+
+    @Scheduled(cron = "${europolitik.import.eurostat.unemployment.cron:0 0 4 * * MON}")
+    public void importUnemployment() {
+        log.info("Starting scheduled Eurostat unemployment import");
+        eurostatImportService.importIndicator(EurostatIndicators.UNEMPLOYMENT_RATE);
     }
 }

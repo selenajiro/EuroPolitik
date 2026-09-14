@@ -21,7 +21,6 @@ import java.util.Optional;
 public class EurostatImportService {
 
     private static final Logger log = LoggerFactory.getLogger(EurostatImportService.class);
-    private static final String SOURCE = "eurostat-population";
 
     private final EurostatClient eurostatClient;
     private final CountryStatisticRepository countryStatisticRepository;
@@ -39,15 +38,15 @@ public class EurostatImportService {
     }
 
     @Transactional
-    public ImportRun importPopulation() {
-        ImportRun run = startRun();
+    public ImportRun importIndicator(EurostatIndicatorSpec spec) {
+        ImportRun run = startRun(spec);
 
         int inserted = 0;
         int updated = 0;
         int skipped = 0;
 
         try {
-            JsonStatDto raw = eurostatClient.fetchPopulation();
+            JsonStatDto raw = eurostatClient.fetch(spec);
             List<Observation> observations = JsonStatDecoder.decode(raw);
             run.setRecordsRead(observations.size());
 
@@ -65,11 +64,11 @@ public class EurostatImportService {
                 }
 
                 Optional<CountryStatistic> existing = countryStatisticRepository
-                        .findByCountryIdAndIndicatorAndYear(country.get().getId(), EurostatImportMapper.INDICATOR, normalized.year());
+                        .findByCountryIdAndIndicatorAndYear(country.get().getId(), spec.indicatorCode(), normalized.year());
                 CountryStatistic stat = existing.orElseGet(CountryStatistic::new);
                 boolean isNew = existing.isEmpty();
 
-                boolean changed = EurostatImportMapper.applyTo(stat, normalized, country.get());
+                boolean changed = EurostatImportMapper.applyTo(stat, normalized, country.get(), spec);
 
                 if (isNew) {
                     countryStatisticRepository.save(stat);
@@ -84,16 +83,16 @@ public class EurostatImportService {
 
             finishRun(run, "SUCCESS", inserted, updated, skipped, null);
         } catch (Exception e) {
-            log.error("Eurostat population import failed", e);
+            log.error("Eurostat import failed for {}", spec.indicatorCode(), e);
             finishRun(run, "FAILED", inserted, updated, skipped, e.getMessage());
         }
 
         return run;
     }
 
-    private ImportRun startRun() {
+    private ImportRun startRun(EurostatIndicatorSpec spec) {
         ImportRun run = new ImportRun();
-        run.setSource(SOURCE);
+        run.setSource("eurostat-" + spec.indicatorCode().toLowerCase());
         run.setStartedAt(LocalDateTime.now());
         run.setCreatedAt(LocalDateTime.now());
         run.setStatus("RUNNING");

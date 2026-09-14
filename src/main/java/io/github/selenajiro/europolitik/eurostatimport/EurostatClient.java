@@ -17,15 +17,15 @@ public class EurostatClient {
                 .build();
     }
 
-    public JsonStatDto fetchPopulation() {
+    public JsonStatDto fetch(EurostatIndicatorSpec spec) {
         return restClient.get()
-                .uri(uriBuilder -> uriBuilder
-                        .path("/demo_gind")
-                        .queryParam("format", "JSON")
-                        .queryParam("lang", "EN")
-                        .queryParam("indic_de", "JAN")
-                        .queryParam("sinceTimePeriod", "2011")
-                        .build())
+                .uri(uriBuilder -> {
+                    uriBuilder.path("/" + spec.datasetCode())
+                            .queryParam("format", "JSON")
+                            .queryParam("lang", "EN");
+                    spec.filters().forEach(uriBuilder::queryParam);
+                    return uriBuilder.build();
+                })
                 .retrieve()
                 .body(JsonStatDto.class);
     }

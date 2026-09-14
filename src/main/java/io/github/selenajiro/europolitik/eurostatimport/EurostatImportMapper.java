@@ -11,9 +11,7 @@ import java.util.Objects;
 
 public class EurostatImportMapper {
 
-    public static final String INDICATOR = "POPULATION";
     private static final String SOURCE_NAME = "Eurostat";
-    private static final String SOURCE_URL = "https://ec.europa.eu/eurostat/databrowser/view/demo_gind/default/table";
 
     private static final Map<String, String> COUNTRY_CODE_FIXUPS = Map.of(
             "EL", "GR",
@@ -51,15 +49,15 @@ public class EurostatImportMapper {
         return new NormalizedStatistic(isoCode, year, value);
     }
 
-    public static boolean applyTo(CountryStatistic stat, NormalizedStatistic normalized, Country country) {
+    public static boolean applyTo(CountryStatistic stat, NormalizedStatistic normalized, Country country, EurostatIndicatorSpec spec) {
         boolean changed = false;
 
         if (stat.getCountry() == null || !Objects.equals(stat.getCountry().getId(), country.getId())) {
             stat.setCountry(country);
             changed = true;
         }
-        if (!INDICATOR.equals(stat.getIndicator())) {
-            stat.setIndicator(INDICATOR);
+        if (!spec.indicatorCode().equals(stat.getIndicator())) {
+            stat.setIndicator(spec.indicatorCode());
             changed = true;
         }
         if (!Objects.equals(stat.getYear(), normalized.year())) {
@@ -70,13 +68,13 @@ public class EurostatImportMapper {
             stat.setValue(normalized.value());
             changed = true;
         }
-        if (!"persons".equals(stat.getUnit())) {
-            stat.setUnit("persons");
+        if (!spec.unit().equals(stat.getUnit())) {
+            stat.setUnit(spec.unit());
             changed = true;
         }
         if (stat.getSourceName() == null) {
             stat.setSourceName(SOURCE_NAME);
-            stat.setSourceUrl(SOURCE_URL);
+            stat.setSourceUrl(spec.sourceUrl());
             changed = true;
         }
 
