@@ -15,10 +15,10 @@ public record EpMepDto(
         @JsonAlias({"label", "name", "fullName", "full-name"})
         String label,
 
-        @JsonAlias({"country", "country-of-representation", "countryOfRepresentation"})
+        @JsonAlias({"api:country-of-representation", "country", "country-of-representation", "countryOfRepresentation"})
         String country,
 
-        @JsonAlias({"politicalGroup", "political-group"})
+        @JsonAlias({"api:political-group", "politicalGroup", "political-group", "political_group"})
         String politicalGroup,
 
         @JsonAlias({"mandateStart", "mandate-start"})
