@@ -19,4 +19,6 @@ public interface ElectionRepository extends JpaRepository<Election, Long> {
 
     @Query("SELECT e FROM Election e JOIN FETCH e.country WHERE e.country.id IN :countryIds ORDER BY e.electionDate DESC")
     List<Election> findAllByCountryIdIn(List<Long> countryIds);
+
+    Optional<Election> findByParlgovElectionId(Long parlgovElectionId);
 }

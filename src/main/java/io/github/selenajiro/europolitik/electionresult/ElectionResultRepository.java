@@ -13,4 +13,6 @@ public interface ElectionResultRepository extends JpaRepository<ElectionResult, 
 
     @Query("SELECT r FROM ElectionResult r JOIN FETCH r.election JOIN FETCH r.party WHERE r.id = :id")
     Optional<ElectionResult> findByIdWithDetails(Long id);
+
+    Optional<ElectionResult> findByElectionIdAndPartyId(Long electionId, Long partyId);
 }
