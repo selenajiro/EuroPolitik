@@ -1,0 +1,2 @@
+ALTER TABLE political_party DROP CONSTRAINT uq_political_party_country_name;
+ALTER TABLE election DROP CONSTRAINT uq_election_country_date_type;
