@@ -21,4 +21,6 @@ public interface ElectionRepository extends JpaRepository<Election, Long> {
     List<Election> findAllByCountryIdIn(List<Long> countryIds);
 
     Optional<Election> findByParlgovElectionId(Long parlgovElectionId);
+
+    Optional<Election> findByCountryIdAndType(Long countryId, String type);
 }

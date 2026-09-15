@@ -30,6 +30,9 @@ public class PoliticalParty {
     @Column(unique = true)
     private Long parlgovPartyId;
 
+    @Column(unique = true, length = 20)
+    private String wikidataPartyId;
+
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "country_id", nullable = false)
     private Country country;

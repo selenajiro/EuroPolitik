@@ -18,4 +18,6 @@ public interface PoliticalPartyRepository extends JpaRepository<PoliticalParty, 
     List<PoliticalParty> findAllByCountryId(Long countryId);
 
     Optional<PoliticalParty> findByParlgovPartyId(Long parlgovPartyId);
+
+    Optional<PoliticalParty> findByWikidataPartyId(String wikidataPartyId);
 }
