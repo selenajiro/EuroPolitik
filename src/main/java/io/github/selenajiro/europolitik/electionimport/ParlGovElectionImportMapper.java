@@ -160,7 +160,7 @@ public class ParlGovElectionImportMapper {
             result.setParty(party);
             changed = true;
         }
-        if (!Objects.equals(result.getVotePercentage(), row.votePercentage())) {
+        if (!bigDecimalEquals(result.getVotePercentage(), row.votePercentage())) {
             result.setVotePercentage(row.votePercentage());
             changed = true;
         }
@@ -177,6 +177,13 @@ public class ParlGovElectionImportMapper {
             result.setUpdatedAt(now);
         }
         return changed;
+    }
+
+    private static boolean bigDecimalEquals(BigDecimal a, BigDecimal b) {
+        if (a == null || b == null) {
+            return a == b;
+        }
+        return a.compareTo(b) == 0;
     }
 
     private static Map<String, String> buildIso3ToIso2Map() {
