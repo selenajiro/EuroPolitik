@@ -28,6 +28,7 @@ public class WikidataCompositionImportService {
 
     private static final Logger log = LoggerFactory.getLogger(WikidataCompositionImportService.class);
     private static final String SOURCE = "wikidata-current-composition";
+    private static final long DELAY_BETWEEN_COUNTRIES_MS = 500;
 
     private enum RowOutcome { INSERTED, UPDATED, UNCHANGED }
 
@@ -64,7 +65,13 @@ public class WikidataCompositionImportService {
         int read = 0;
 
         try {
+            boolean first = true;
             for (WikidataLegislatureSpec spec : WikidataLegislatures.SPECS) {
+                if (!first) {
+                    sleepBetweenCountries();
+                }
+                first = false;
+
                 Optional<Country> countryOpt = countryRepository.findByIsoCode(spec.countryIsoCode());
                 if (countryOpt.isEmpty()) {
                     log.warn("Skipping Wikidata composition for {} - country not found", spec.countryIsoCode());
@@ -123,6 +130,14 @@ public class WikidataCompositionImportService {
         return run;
     }
 
+    private void sleepBetweenCountries() {
+        try {
+            Thread.sleep(DELAY_BETWEEN_COUNTRIES_MS);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+        }
+    }
+
     private RowOutcome processRow(NormalizedPartyComposition normalized, Country country) {
         PoliticalParty party = politicalPartyRepository.findByWikidataPartyId(normalized.wikidataPartyId())
                 .orElseGet(PoliticalParty::new);
@@ -133,7 +148,7 @@ public class WikidataCompositionImportService {
         Election election = electionRepository.findByCountryIdAndType(country.getId(), "CURRENT_COMPOSITION")
                 .orElseGet(Election::new);
         WikidataCompositionMapper.applyToElection(election, country);
-        election = electionRepository.save(election); // always saved -- importedAt refreshes every run
+        election = electionRepository.save(election);
 
         Optional<ElectionResult> existingResult = electionResultRepository
                 .findByElectionIdAndPartyId(election.getId(), party.getId());
