@@ -28,7 +28,7 @@ public class WikidataClient {
                 SELECT ?party ?partyLabel (COUNT(DISTINCT ?politician) AS ?count) WHERE {
                   ?politician p:P39 ?membership .
                   ?membership ps:P39 wd:%s .
-                  FILTER NOT EXISTS { ?membership pq:P582 ?end }
+                  ?membership wikibase:rank wikibase:PreferredRank .
                   ?politician wdt:P102 ?party .
                   SERVICE wikibase:label { bd:serviceParam wikibase:language "en" }
                 }
