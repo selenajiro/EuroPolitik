@@ -47,6 +47,17 @@ public class Country {
     @Column(nullable = false)
     private MultiPolygon geometry;
 
+    @Column(length = 300)
+    private String currentRulingParty;
+
+    @Column(length = 200)
+    private String rulingPartySourceName;
+
+    @Column(length = 500)
+    private String rulingPartySourceUrl;
+
+    private LocalDateTime rulingPartyUpdatedAt;
+
     @Column(nullable = false)
     private LocalDateTime createdAt;
 

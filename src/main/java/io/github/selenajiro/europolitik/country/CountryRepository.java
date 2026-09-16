@@ -10,6 +10,8 @@ public interface CountryRepository extends JpaRepository<Country, Long> {
 
     Optional<Country> findByIsoCode(String isoCode);
 
+    Optional<Country> findByNameIgnoreCase(String name);
+
     @Query(value = """
         SELECT c2.* FROM country c1
         JOIN country c2 ON ST_Intersects(c1.geometry, c2.geometry) AND c1.id <> c2.id
