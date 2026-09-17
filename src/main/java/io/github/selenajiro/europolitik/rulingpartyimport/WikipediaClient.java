@@ -1,6 +1,7 @@
 package io.github.selenajiro.europolitik.rulingpartyimport;
 
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.http.client.SimpleClientHttpRequestFactory;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestClient;
 
@@ -19,7 +20,13 @@ public class WikipediaClient {
     public WikipediaClient(RestClient.Builder restClientBuilder,
                            @Value("${europolitik.import.wikipedia.base-url:https://en.wikipedia.org/w/api.php}") String baseUrl) {
         this.baseUrl = baseUrl;
+
+        SimpleClientHttpRequestFactory requestFactory = new SimpleClientHttpRequestFactory();
+        requestFactory.setConnectTimeout(10_000);
+        requestFactory.setReadTimeout(60_000);
+
         this.restClient = restClientBuilder
+                .requestFactory(requestFactory)
                 .defaultHeader("User-Agent", "EuroPolitik-portfolio-project/1.0")
                 .build();
     }
