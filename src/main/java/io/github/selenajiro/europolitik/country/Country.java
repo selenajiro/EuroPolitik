@@ -12,6 +12,7 @@ import lombok.NoArgsConstructor;
 import lombok.Setter;
 import org.locationtech.jts.geom.MultiPolygon;
 
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
 @Entity
@@ -57,6 +58,11 @@ public class Country {
     private String rulingPartySourceUrl;
 
     private LocalDateTime rulingPartyUpdatedAt;
+
+    @Column(precision = 3, scale = 1)
+    private BigDecimal currentPoliticalLeaning;
+
+    private LocalDateTime politicalLeaningComputedAt;
 
     @Column(nullable = false)
     private LocalDateTime createdAt;
