@@ -47,7 +47,7 @@ public class Country {
     @Column(nullable = false)
     private MultiPolygon geometry;
 
-    @Column(length = 300)
+    @Column(length = 1000)
     private String currentRulingParty;
 
     @Column(length = 200)

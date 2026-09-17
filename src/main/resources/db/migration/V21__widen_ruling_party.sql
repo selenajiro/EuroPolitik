@@ -1,0 +1,1 @@
+ALTER TABLE country ALTER COLUMN current_ruling_party TYPE VARCHAR(1000);
