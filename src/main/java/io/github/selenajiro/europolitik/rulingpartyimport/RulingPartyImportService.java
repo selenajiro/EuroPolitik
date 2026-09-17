@@ -20,6 +20,10 @@ public class RulingPartyImportService {
     private static final String SOURCE = "wikipedia-ruling-party";
     private static final String SOURCE_URL = "https://en.wikipedia.org/wiki/List_of_ruling_political_parties_by_country";
 
+    private static final Map<String, String> NAME_ALIASES = Map.of(
+            "Czech Republic", "Czechia"
+    );
+
     private final WikipediaClient client;
     private final CountryRepository countryRepository;
     private final ImportRunRepository importRunRepository;
@@ -45,7 +49,10 @@ public class RulingPartyImportService {
             run.setRecordsRead(byCountryName.size());
 
             for (Map.Entry<String, String> entry : byCountryName.entrySet()) {
-                Optional<Country> countryOpt = countryRepository.findByNameIgnoreCase(entry.getKey());
+                String wikipediaName = entry.getKey();
+                String lookupName = NAME_ALIASES.getOrDefault(wikipediaName, wikipediaName);
+
+                Optional<Country> countryOpt = countryRepository.findByNameIgnoreCase(lookupName);
                 if (countryOpt.isEmpty()) {
                     continue; // expected -- this page covers the whole world
                 }
