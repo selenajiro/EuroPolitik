@@ -72,12 +72,14 @@ public class PoliticalLeaningService {
                 }
 
                 BigDecimal average = sum.divide(BigDecimal.valueOf(matches), 1, RoundingMode.HALF_UP);
+                String label = toLabel(average);
                 country.setCurrentPoliticalLeaning(average);
+                country.setCurrentPoliticalLeaningLabel(label);
                 country.setPoliticalLeaningComputedAt(LocalDateTime.now());
                 countryRepository.save(country);
                 updated++;
-                log.info("Political leaning for {}: {} (from {} matched part{})",
-                        country.getName(), average, matches, matches == 1 ? "y" : "ies");
+                log.info("Political leaning for {}: {} ({}, from {} matched part{})",
+                        country.getName(), average, label, matches, matches == 1 ? "y" : "ies");
             }
 
             finishRun(run, "SUCCESS", 0, updated, skipped, null);
@@ -87,6 +89,17 @@ public class PoliticalLeaningService {
         }
 
         return run;
+    }
+
+    private String toLabel(BigDecimal score) {
+        double v = score.doubleValue();
+        if (v < 1.5) return "Far Left";
+        if (v < 3.5) return "Left";
+        if (v < 4.5) return "Center-Left";
+        if (v < 5.5) return "Center";
+        if (v < 6.5) return "Center-Right";
+        if (v < 8.5) return "Right";
+        return "Far Right";
     }
 
     private boolean matchesText(String haystack, String needle) {

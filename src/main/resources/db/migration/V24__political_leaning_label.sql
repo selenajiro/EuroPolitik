@@ -1,0 +1,1 @@
+ALTER TABLE country ADD COLUMN current_political_leaning_label VARCHAR(20);

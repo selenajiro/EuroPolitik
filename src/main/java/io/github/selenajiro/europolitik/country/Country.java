@@ -62,6 +62,9 @@ public class Country {
     @Column(precision = 3, scale = 1)
     private BigDecimal currentPoliticalLeaning;
 
+    @Column(length = 20)
+    private String currentPoliticalLeaningLabel;
+
     private LocalDateTime politicalLeaningComputedAt;
 
     @Column(nullable = false)
