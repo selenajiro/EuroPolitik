@@ -30,6 +30,9 @@ public class ParlGovElectionRow {
     @JsonProperty("party_name_english")
     public String partyNameEnglish;
 
+    @JsonProperty("left_right")
+    public String leftRight;
+
     @JsonProperty("election_id")
     public String electionId;
 

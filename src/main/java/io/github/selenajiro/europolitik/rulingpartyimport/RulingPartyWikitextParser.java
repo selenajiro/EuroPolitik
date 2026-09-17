@@ -31,6 +31,7 @@ public class RulingPartyWikitextParser {
 
         List<String> cells = new ArrayList<>();
         boolean inTable = false;
+        boolean rowJustStarted = false;
 
         for (String rawLine : wikitext.split("\n")) {
             String line = rawLine.trim();
@@ -46,12 +47,14 @@ public class RulingPartyWikitextParser {
             if (line.startsWith("|-")) {
                 finalizeRow(cells, result);
                 cells = new ArrayList<>();
+                rowJustStarted = true;
                 continue;
             }
             if (line.startsWith("|}")) {
                 finalizeRow(cells, result);
                 cells = new ArrayList<>();
                 inTable = false;
+                rowJustStarted = false;
                 continue;
             }
             if (line.startsWith("!")) {
@@ -59,6 +62,12 @@ public class RulingPartyWikitextParser {
             }
             if (line.startsWith("|")) {
                 cells.add(line.substring(1));
+                rowJustStarted = false;
+                continue;
+            }
+            if (rowJustStarted && !line.isEmpty()) {
+                cells.add(line);
+                rowJustStarted = false;
             }
         }
         finalizeRow(cells, result);

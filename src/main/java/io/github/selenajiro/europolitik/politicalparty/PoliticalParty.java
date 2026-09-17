@@ -14,6 +14,7 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
 @Entity
@@ -48,6 +49,9 @@ public class PoliticalParty {
 
     @Column(length = 100)
     private String ideology;
+
+    @Column(precision = 3, scale = 1)
+    private BigDecimal leftRight;
 
     @Column(length = 200)
     private String sourceName;

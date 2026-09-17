@@ -1,0 +1,1 @@
+ALTER TABLE political_party ADD COLUMN left_right NUMERIC(3,1);

@@ -33,7 +33,8 @@ public class ParlGovElectionImportMapper {
             String partyName,
             String partyShortName,
             BigDecimal votePercentage,
-            Integer seats
+            Integer seats,
+            BigDecimal leftRight
     ) {}
 
     public static NormalizedRow normalize(ParlGovElectionRow row) {
@@ -66,7 +67,8 @@ public class ParlGovElectionImportMapper {
         String type = "ep".equalsIgnoreCase(row.electionType.trim()) ? "EUROPEAN_PARLIAMENT" : "NATIONAL_PARLIAMENT";
 
         return new NormalizedRow(isoCode, parlgovElectionId, type, electionDate, parlgovPartyId,
-                partyName, row.partyNameShort, parseDecimal(row.voteShare), parseInt(row.seats));
+                partyName, row.partyNameShort, parseDecimal(row.voteShare), parseInt(row.seats),
+                parseDecimal(row.leftRight));
     }
 
     public static String electionName(String countryName, NormalizedRow row) {
@@ -90,6 +92,10 @@ public class ParlGovElectionImportMapper {
         }
         if (!Objects.equals(party.getShortName(), row.partyShortName())) {
             party.setShortName(row.partyShortName());
+            changed = true;
+        }
+        if (!bigDecimalEquals(party.getLeftRight(), row.leftRight())) {
+            party.setLeftRight(row.leftRight());
             changed = true;
         }
         if (party.getSourceName() == null) {
@@ -192,7 +198,6 @@ public class ParlGovElectionImportMapper {
             try {
                 map.put(Locale.of("", iso2).getISO3Country(), iso2);
             } catch (MissingResourceException ignored) {
-                // No ISO3 code for this entry
             }
         }
         return map;
