@@ -14,13 +14,17 @@ import org.springframework.transaction.annotation.Transactional;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.LocalDateTime;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
+import java.util.regex.Pattern;
 
 @Service
 public class PoliticalLeaningService {
 
     private static final Logger log = LoggerFactory.getLogger(PoliticalLeaningService.class);
     private static final String SOURCE = "derived-political-leaning";
+    private static final Pattern TOKEN_SPLIT = Pattern.compile("[,()/]|–|—");
 
     private final CountryRepository countryRepository;
     private final PoliticalPartyRepository politicalPartyRepository;
@@ -53,16 +57,27 @@ public class PoliticalLeaningService {
                 }
 
                 List<PoliticalParty> parties = politicalPartyRepository.findAllByCountryId(country.getId());
+                List<String> tokens = tokenize(rulingParty);
+
                 BigDecimal sum = BigDecimal.ZERO;
                 int matches = 0;
+                Set<Long> matchedPartyIds = new HashSet<>();
+                List<String> matchedNames = new java.util.ArrayList<>();
 
-                for (PoliticalParty party : parties) {
-                    if (party.getLeftRight() == null) {
-                        continue;
-                    }
-                    if (matchesText(rulingParty, party.getName()) || matchesText(rulingParty, party.getShortName())) {
-                        sum = sum.add(party.getLeftRight());
-                        matches++;
+                for (String token : tokens) {
+                    for (PoliticalParty party : parties) {
+                        if (party.getLeftRight() == null || matchedPartyIds.contains(party.getId())) {
+                            continue;
+                        }
+                        boolean matched = token.equalsIgnoreCase(nullSafe(party.getShortName()))
+                                || token.equalsIgnoreCase(nullSafe(party.getName()));
+                        if (matched) {
+                            sum = sum.add(party.getLeftRight());
+                            matches++;
+                            matchedPartyIds.add(party.getId());
+                            matchedNames.add(party.getName());
+                            break;
+                        }
                     }
                 }
 
@@ -78,8 +93,8 @@ public class PoliticalLeaningService {
                 country.setPoliticalLeaningComputedAt(LocalDateTime.now());
                 countryRepository.save(country);
                 updated++;
-                log.info("Political leaning for {}: {} ({}, from {} matched part{})",
-                        country.getName(), average, label, matches, matches == 1 ? "y" : "ies");
+                log.info("Political leaning for {}: {} ({}, matched: {})",
+                        country.getName(), average, label, String.join(", ", matchedNames));
             }
 
             finishRun(run, "SUCCESS", 0, updated, skipped, null);
@@ -91,6 +106,17 @@ public class PoliticalLeaningService {
         return run;
     }
 
+    private List<String> tokenize(String text) {
+        return java.util.Arrays.stream(TOKEN_SPLIT.split(text))
+                .map(String::trim)
+                .filter(s -> !s.isEmpty())
+                .toList();
+    }
+
+    private String nullSafe(String value) {
+        return value == null ? "" : value;
+    }
+
     private String toLabel(BigDecimal score) {
         double v = score.doubleValue();
         if (v < 1.5) return "Far Left";
@@ -100,13 +126,6 @@ public class PoliticalLeaningService {
         if (v < 6.5) return "Center-Right";
         if (v < 8.5) return "Right";
         return "Far Right";
-    }
-
-    private boolean matchesText(String haystack, String needle) {
-        if (needle == null || needle.isBlank() || needle.length() < 3) {
-            return false; // avoid matching tiny abbreviations against everything
-        }
-        return haystack.toLowerCase().contains(needle.toLowerCase());
     }
 
     private ImportRun startRun() {
