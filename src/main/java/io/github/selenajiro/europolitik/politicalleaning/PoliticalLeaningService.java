@@ -13,7 +13,10 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
+import java.text.Normalizer;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
@@ -25,6 +28,8 @@ public class PoliticalLeaningService {
     private static final Logger log = LoggerFactory.getLogger(PoliticalLeaningService.class);
     private static final String SOURCE = "derived-political-leaning";
     private static final Pattern TOKEN_SPLIT = Pattern.compile("[,()/]|–|—");
+    private static final Pattern TRAILING_PAREN = Pattern.compile("\\s*\\([^)]*\\)\\s*$");
+    private static final Pattern COMBINING_MARKS = Pattern.compile("\\p{M}");
 
     private final CountryRepository countryRepository;
     private final PoliticalPartyRepository politicalPartyRepository;
@@ -62,15 +67,19 @@ public class PoliticalLeaningService {
                 BigDecimal sum = BigDecimal.ZERO;
                 int matches = 0;
                 Set<Long> matchedPartyIds = new HashSet<>();
-                List<String> matchedNames = new java.util.ArrayList<>();
+                List<String> matchedNames = new ArrayList<>();
 
                 for (String token : tokens) {
+                    String normalizedToken = normalize(token, country.getName());
+
                     for (PoliticalParty party : parties) {
                         if (party.getLeftRight() == null || matchedPartyIds.contains(party.getId())) {
                             continue;
                         }
-                        boolean matched = token.equalsIgnoreCase(nullSafe(party.getShortName()))
-                                || token.equalsIgnoreCase(nullSafe(party.getName()));
+                        String normalizedShort = normalize(party.getShortName(), country.getName());
+                        String normalizedName = normalize(party.getName(), country.getName());
+                        boolean matched = normalizedToken.equalsIgnoreCase(normalizedShort)
+                                || normalizedToken.equalsIgnoreCase(normalizedName);
                         if (matched) {
                             sum = sum.add(party.getLeftRight());
                             matches++;
@@ -107,14 +116,30 @@ public class PoliticalLeaningService {
     }
 
     private List<String> tokenize(String text) {
-        return java.util.Arrays.stream(TOKEN_SPLIT.split(text))
+        return Arrays.stream(TOKEN_SPLIT.split(text))
                 .map(String::trim)
                 .filter(s -> !s.isEmpty())
                 .toList();
     }
 
-    private String nullSafe(String value) {
-        return value == null ? "" : value;
+    private String normalize(String text, String countryName) {
+        if (text == null) {
+            return "";
+        }
+        String result = text.trim();
+
+        if (countryName != null && result.length() > countryName.length()
+                && result.regionMatches(true, 0, countryName, 0, countryName.length())
+                && result.charAt(countryName.length()) == ' ') {
+            result = result.substring(countryName.length() + 1).trim();
+        }
+
+        result = TRAILING_PAREN.matcher(result).replaceAll("").trim();
+
+        result = Normalizer.normalize(result, Normalizer.Form.NFD);
+        result = COMBINING_MARKS.matcher(result).replaceAll("");
+
+        return result;
     }
 
     private String toLabel(BigDecimal score) {
