@@ -4,11 +4,14 @@ import io.github.selenajiro.europolitik.country.Country;
 import io.github.selenajiro.europolitik.country.CountryRepository;
 import io.github.selenajiro.europolitik.importrun.ImportRun;
 import io.github.selenajiro.europolitik.importrun.ImportRunRepository;
+import io.github.selenajiro.europolitik.politicalevent.PoliticalEvent;
+import io.github.selenajiro.europolitik.politicalevent.PoliticalEventRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.Map;
 import java.util.Optional;
@@ -26,13 +29,16 @@ public class RulingPartyImportService {
 
     private final WikipediaClient client;
     private final CountryRepository countryRepository;
+    private final PoliticalEventRepository politicalEventRepository;
     private final ImportRunRepository importRunRepository;
 
     public RulingPartyImportService(WikipediaClient client,
                                     CountryRepository countryRepository,
+                                    PoliticalEventRepository politicalEventRepository,
                                     ImportRunRepository importRunRepository) {
         this.client = client;
         this.countryRepository = countryRepository;
+        this.politicalEventRepository = politicalEventRepository;
         this.importRunRepository = importRunRepository;
     }
 
@@ -54,16 +60,19 @@ public class RulingPartyImportService {
 
                 Optional<Country> countryOpt = countryRepository.findByNameIgnoreCase(lookupName);
                 if (countryOpt.isEmpty()) {
-                    continue; // expected -- this page covers the whole world
+                    continue;
                 }
 
                 Country country = countryOpt.get();
                 String rulingParty = entry.getValue();
+                String previousRulingParty = country.getCurrentRulingParty();
 
-                if (rulingParty.equals(country.getCurrentRulingParty())) {
+                if (rulingParty.equals(previousRulingParty)) {
                     skipped++;
                     continue;
                 }
+
+                boolean isRealChange = previousRulingParty != null && !previousRulingParty.isBlank();
 
                 country.setCurrentRulingParty(rulingParty);
                 country.setRulingPartySourceName("Wikipedia");
@@ -72,6 +81,10 @@ public class RulingPartyImportService {
                 countryRepository.save(country);
                 updated++;
                 log.info("Ruling party for {}: {}", country.getName(), rulingParty);
+
+                if (isRealChange) {
+                    logGovernmentChangeEvent(country, previousRulingParty, rulingParty);
+                }
             }
 
             finishRun(run, "SUCCESS", 0, updated, skipped, null);
@@ -81,6 +94,21 @@ public class RulingPartyImportService {
         }
 
         return run;
+    }
+
+    private void logGovernmentChangeEvent(Country country, String previous, String current) {
+        PoliticalEvent event = new PoliticalEvent();
+        event.setCountry(country);
+        event.setEventType("GOVERNMENT_CHANGE");
+        event.setTitle("New ruling party/coalition in " + country.getName());
+        event.setDescription("Previously: " + previous + "\nNow: " + current);
+        event.setEventDate(LocalDate.now());
+        event.setSourceName("Wikipedia");
+        event.setSourceUrl(SOURCE_URL);
+        event.setCreatedAt(LocalDateTime.now());
+        event.setUpdatedAt(LocalDateTime.now());
+        politicalEventRepository.save(event);
+        log.info("Logged government change event for {}", country.getName());
     }
 
     private ImportRun startRun() {
