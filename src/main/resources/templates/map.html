@@ -18,7 +18,7 @@
         }
         html, body { margin: 0; padding: 0; height: 100%; font-family: 'IBM Plex Sans', sans-serif; }
         .layout { display: flex; height: 100vh; }
-        #map { flex: 1; height: 100vh; background: var(--ocean); position: relative; }
+        #map { flex: 1; height: 100vh; background: var(--ocean); }
         .leaflet-container { background: var(--ocean); }
 
         .sidebar {
@@ -49,7 +49,7 @@
         }
 
         .layer-picker {
-            position: absolute; top: 16px; right: 16px; z-index: 1000;
+            position: absolute; left: 24px; z-index: 1000;
             background: var(--ocean-deep); border-radius: 3px; padding: 4px;
             display: flex; gap: 2px; box-shadow: 0 4px 20px rgba(0,0,0,0.35);
         }
@@ -68,6 +68,7 @@
             background: var(--ocean-deep); color: var(--cream);
             padding: 14px 18px; border-radius: 3px; font-size: 13px;
             box-shadow: 0 4px 20px rgba(0,0,0,0.35);
+            max-height: calc(100vh - 200px); overflow-y: auto;
         }
         .legend div { display: flex; align-items: center; gap: 8px; margin: 4px 0; }
         .legend .swatch { width: 12px; height: 12px; border-radius: 2px; flex-shrink: 0; }
@@ -102,22 +103,22 @@
 <script src="/js/auth.js"></script>
 
 <div class="layout">
-    <div id="map">
-        <div class="layer-picker">
-            <button class="layer-btn active" data-layer="eu" onclick="switchLayer('eu')">EU</button>
-            <button class="layer-btn" data-layer="schengen" onclick="switchLayer('schengen')">Schengen</button>
-            <button class="layer-btn" data-layer="eurozone" onclick="switchLayer('eurozone')">Eurozone</button>
-            <button class="layer-btn" data-layer="nato" onclick="switchLayer('nato')">NATO</button>
-            <button class="layer-btn" data-layer="leaning" onclick="switchLayer('leaning')">Leaning</button>
-        </div>
-        <div class="legend" id="legend"></div>
-    </div>
-
+    <div id="map"></div>
     <aside class="sidebar">
         <h2>Your feed</h2>
         <div id="feed-content">Loading...</div>
     </aside>
 </div>
+
+<div class="layer-picker">
+    <button class="layer-btn active" data-layer="eu" onclick="switchLayer('eu')">EU</button>
+    <button class="layer-btn" data-layer="schengen" onclick="switchLayer('schengen')">Schengen</button>
+    <button class="layer-btn" data-layer="eurozone" onclick="switchLayer('eurozone')">Eurozone</button>
+    <button class="layer-btn" data-layer="nato" onclick="switchLayer('nato')">NATO</button>
+    <button class="layer-btn" data-layer="leaning" onclick="switchLayer('leaning')">Leaning</button>
+</div>
+
+<div class="legend" id="legend"></div>
 
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script>
@@ -228,6 +229,11 @@
                     <div><span class="swatch" style="background: #9c9186"></span><span>${layer.otherLabel}</span></div>
                 `;
         }
+
+        requestAnimationFrame(() => {
+            const picker = document.querySelector('.layer-picker');
+            picker.style.bottom = (24 + legend.offsetHeight + 16) + 'px';
+        });
     }
 
     function switchLayer(layerKey) {
