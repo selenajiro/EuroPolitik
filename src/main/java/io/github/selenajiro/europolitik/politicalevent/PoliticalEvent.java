@@ -32,6 +32,12 @@ public class PoliticalEvent {
     @JoinColumn(name = "country_id")
     private Country country;
 
+    @Column(unique = true)
+    private Long sourceElectionId;
+
+    @Column(unique = true, length = 300)
+    private String sourceArticleTitle;
+
     @Column(nullable = false, length = 50)
     private String eventType;
 
