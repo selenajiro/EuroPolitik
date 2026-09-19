@@ -8,7 +8,13 @@ import org.springframework.web.client.RestClient;
 import java.net.URI;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
+import java.util.List;
 
+/**
+ * Fetches from Wikipedia's MediaWiki API: the ruling-parties wikitext
+ * (large, needs its own long timeout -- see fetchRulingPartiesWikitext),
+ * plus category lookups and article extracts used by election discovery.
+ */
 @Component
 public class WikipediaClient {
 
@@ -44,5 +50,44 @@ public class WikipediaClient {
             return null;
         }
         return response.parse().wikitext().content();
+    }
+
+    /** Titles of every page in "Category:{year} elections in {countryName}". */
+    public List<String> fetchElectionCategoryMembers(String countryName, int year) {
+        String categoryTitle = "Category:" + year + " elections in " + countryName;
+        String encoded = URLEncoder.encode(categoryTitle, StandardCharsets.UTF_8);
+        URI uri = URI.create(baseUrl + "?action=query&list=categorymembers&cmtitle=" + encoded + "&cmlimit=100&format=json");
+
+        CategoryMembersResponseDto response = restClient.get()
+                .uri(uri)
+                .retrieve()
+                .body(CategoryMembersResponseDto.class);
+
+        if (response == null || response.query() == null || response.query().categorymembers() == null) {
+            return List.of();
+        }
+        return response.query().categorymembers().stream()
+                .map(CategoryMembersResponseDto.CategoryMember::title)
+                .toList();
+    }
+
+    /** Plain-text intro paragraph of an article, used to find its date. */
+    public String fetchArticleExtract(String articleTitle) {
+        String encoded = URLEncoder.encode(articleTitle, StandardCharsets.UTF_8);
+        URI uri = URI.create(baseUrl + "?action=query&prop=extracts&exintro=true&explaintext=true&titles="
+                + encoded + "&format=json");
+
+        ExtractResponseDto response = restClient.get()
+                .uri(uri)
+                .retrieve()
+                .body(ExtractResponseDto.class);
+
+        if (response == null || response.query() == null || response.query().pages() == null) {
+            return null;
+        }
+        return response.query().pages().values().stream()
+                .findFirst()
+                .map(ExtractResponseDto.PageExtractDto::extract)
+                .orElse(null);
     }
 }
