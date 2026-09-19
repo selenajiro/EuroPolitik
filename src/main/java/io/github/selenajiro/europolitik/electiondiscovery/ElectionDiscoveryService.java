@@ -24,6 +24,20 @@ import java.util.function.Supplier;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
+/**
+ * Discovers recent/current NATIONAL-level elections per country via
+ * Wikipedia's "Category:{year} elections in {country}" categories.
+ * <p>
+ * These categories include far more than national elections -- regional
+ * legislature races, city/municipal elections, party leadership
+ * primaries, by-elections, and even MediaWiki Category:/Template: pages
+ * that aren't real articles at all. A title is only accepted if it
+ * contains the country's own demonym (so region-named sub-national
+ * elections, which usually don't mention the country at all, drop out)
+ * AND doesn't match a known list of sub-national/internal-party
+ * patterns (so country-wide local/municipal elections, which DO
+ * mention the country, still get excluded).
+ */
 @Service
 public class ElectionDiscoveryService {
 
@@ -33,14 +47,51 @@ public class ElectionDiscoveryService {
     private static final int MAX_RETRIES = 4;
     private static final long BASE_BACKOFF_MS = 5000;
 
-    private static final Map<String, String> NAME_ALIASES = Map.of(
+    private static final Map<String, String> CATEGORY_NAME_ALIASES = Map.of(
             "Czechia", "Czech Republic"
+    );
+
+    // Demonym used to confirm a title is actually about this country,
+    // not a region within it. Article titles for sub-national elections
+    // (e.g. "Baden-Württemberg state election") typically don't include
+    // the country name/demonym at all.
+    private static final Map<String, String> DEMONYMS = Map.ofEntries(
+            Map.entry("Albania", "Albanian"), Map.entry("Andorra", "Andorran"),
+            Map.entry("Austria", "Austrian"), Map.entry("Belarus", "Belarusian"),
+            Map.entry("Belgium", "Belgian"), Map.entry("Bosnia and Herzegovina", "Bosnian"),
+            Map.entry("Bulgaria", "Bulgarian"), Map.entry("Croatia", "Croatian"),
+            Map.entry("Cyprus", "Cypriot"), Map.entry("Czechia", "Czech"),
+            Map.entry("Denmark", "Danish"), Map.entry("Estonia", "Estonian"),
+            Map.entry("Finland", "Finnish"), Map.entry("France", "French"),
+            Map.entry("Germany", "German"), Map.entry("Greece", "Greek"),
+            Map.entry("Hungary", "Hungarian"), Map.entry("Iceland", "Icelandic"),
+            Map.entry("Ireland", "Irish"), Map.entry("Italy", "Italian"),
+            Map.entry("Kosovo", "Kosovar"), Map.entry("Latvia", "Latvian"),
+            Map.entry("Liechtenstein", "Liechtenstein"), Map.entry("Lithuania", "Lithuanian"),
+            Map.entry("Luxembourg", "Luxembourg"), Map.entry("Malta", "Maltese"),
+            Map.entry("Moldova", "Moldovan"), Map.entry("Monaco", "Monaco"),
+            Map.entry("Montenegro", "Montenegrin"), Map.entry("Netherlands", "Dutch"),
+            Map.entry("North Macedonia", "Macedonian"), Map.entry("Norway", "Norwegian"),
+            Map.entry("Poland", "Polish"), Map.entry("Portugal", "Portuguese"),
+            Map.entry("Romania", "Romanian"), Map.entry("Russia", "Russian"),
+            Map.entry("San Marino", "Sammarinese"), Map.entry("Serbia", "Serbian"),
+            Map.entry("Slovakia", "Slovak"), Map.entry("Slovenia", "Slovenian"),
+            Map.entry("Spain", "Spanish"), Map.entry("Sweden", "Swedish"),
+            Map.entry("Switzerland", "Swiss"), Map.entry("Turkey", "Turkish"),
+            Map.entry("Ukraine", "Ukrainian"), Map.entry("United Kingdom", "British"),
+            Map.entry("Vatican City", "Vatican")
+    );
+
+    private static final List<String> NOISE_PATTERNS = List.of(
+            "local election", "municipal", "primary", "leadership election",
+            "by-election", "by election", "consular", "state election",
+            "gubernatorial", "head election", "regional election", "senate election",
+            "council election", "district election"
     );
 
     private static final Pattern DATE_PATTERN = Pattern.compile(
             "\\b(\\d{1,2}\\s+(?:January|February|March|April|May|June|July|August|September|October|November|December)\\s+\\d{4})\\b");
     private static final DateTimeFormatter DATE_FORMAT = DateTimeFormatter.ofPattern("d MMMM yyyy", Locale.ENGLISH);
-    private static final Pattern OPINION_POLLING = Pattern.compile("^Opinion polling", Pattern.CASE_INSENSITIVE);
 
     private final WikipediaClient client;
     private final CountryRepository countryRepository;
@@ -70,12 +121,13 @@ public class ElectionDiscoveryService {
             List<Country> countries = countryRepository.findAll();
 
             for (Country country : countries) {
-                String wikipediaCountryName = NAME_ALIASES.getOrDefault(country.getName(), country.getName());
+                String categoryCountryName = CATEGORY_NAME_ALIASES.getOrDefault(country.getName(), country.getName());
+                String demonym = DEMONYMS.get(country.getName());
 
                 List<String> titles;
                 try {
                     sleepBetweenCalls();
-                    titles = withRetryOnRateLimit(() -> client.fetchElectionCategoryMembers(wikipediaCountryName, year));
+                    titles = withRetryOnRateLimit(() -> client.fetchElectionCategoryMembers(categoryCountryName, year));
                 } catch (Exception e) {
                     log.warn("Category lookup failed for {}: {}", country.getName(), e.getMessage());
                     skipped++;
@@ -84,7 +136,7 @@ public class ElectionDiscoveryService {
 
                 for (String title : titles) {
                     read++;
-                    if (OPINION_POLLING.matcher(title).find()) {
+                    if (!isNationalLevelElection(title, country.getName(), demonym)) {
                         skipped++;
                         continue;
                     }
@@ -110,6 +162,26 @@ public class ElectionDiscoveryService {
         }
 
         return run;
+    }
+
+    private boolean isNationalLevelElection(String title, String countryName, String demonym) {
+        if (title.startsWith("Category:") || title.startsWith("Template:") || title.startsWith("Talk:")) {
+            return false;
+        }
+
+        boolean mentionsCountry = (demonym != null && title.contains(demonym)) || title.contains(countryName);
+        if (!mentionsCountry) {
+            return false;
+        }
+
+        String lower = title.toLowerCase(Locale.ENGLISH);
+        for (String noise : NOISE_PATTERNS) {
+            if (lower.contains(noise)) {
+                return false;
+            }
+        }
+
+        return true;
     }
 
     private PoliticalEvent buildEvent(Country country, String articleTitle, int fallbackYear) {
