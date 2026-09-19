@@ -67,7 +67,7 @@
             box-shadow: 0 4px 20px rgba(0,0,0,0.35);
         }
         .legend div { display: flex; align-items: center; gap: 8px; margin: 4px 0; }
-        .legend .swatch { width: 12px; height: 12px; border-radius: 2px; }
+        .legend .swatch { width: 12px; height: 12px; border-radius: 2px; flex-shrink: 0; }
 
         .country-popup { font-family: 'IBM Plex Sans', sans-serif; min-width: 180px; }
         .country-popup .popup-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
@@ -77,8 +77,10 @@
         }
         .country-popup .fact { display: flex; justify-content: space-between; font-size: 13px; padding: 3px 0; }
         .country-popup .fact .label { color: #6b6b6b; }
+        .country-popup .fact .value { color: var(--ocean-deep); font-weight: 500; }
         .country-popup .fact .value.yes { color: var(--land-eu); font-weight: 500; }
         .country-popup .fact .value.no { color: #b7b0a8; }
+        .country-popup .ruling-party { font-size: 12px; color: #5a5a5a; line-height: 1.4; padding: 2px 0 6px; }
         .country-popup a.profile-link { display: inline-block; margin-top: 8px; font-size: 12px; color: var(--ocean-deep); font-weight: 500; }
 
         .leaflet-popup-content-wrapper { background: var(--cream); border-radius: 4px; }
@@ -109,12 +111,10 @@
     <button class="layer-btn" data-layer="schengen" onclick="switchLayer('schengen')">Schengen</button>
     <button class="layer-btn" data-layer="eurozone" onclick="switchLayer('eurozone')">Eurozone</button>
     <button class="layer-btn" data-layer="nato" onclick="switchLayer('nato')">NATO</button>
+    <button class="layer-btn" data-layer="leaning" onclick="switchLayer('leaning')">Leaning</button>
 </div>
 
-<div class="legend">
-    <div><span class="swatch" style="background: #b8945f"></span><span id="legend-active-label">EU member</span></div>
-    <div><span class="swatch" style="background: #9c9186"></span><span id="legend-inactive-label">Non-EU</span></div>
-</div>
+<div class="legend" id="legend"></div>
 
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script>
@@ -134,23 +134,53 @@
     }, 100);
 
     const LAYERS = {
-        eu: { label: 'EU member', otherLabel: 'Non-EU', property: 'euMember' },
-        schengen: { label: 'Schengen member', otherLabel: 'Non-Schengen', property: 'schengenMember' },
-        eurozone: { label: 'Eurozone member', otherLabel: 'Non-Eurozone', property: 'eurozoneMember' },
-        nato: { label: 'NATO member', otherLabel: 'Non-NATO', property: 'natoMember' }
+        eu: { type: 'boolean', label: 'EU member', otherLabel: 'Non-EU', property: 'euMember' },
+        schengen: { type: 'boolean', label: 'Schengen member', otherLabel: 'Non-Schengen', property: 'schengenMember' },
+        eurozone: { type: 'boolean', label: 'Eurozone member', otherLabel: 'Non-Eurozone', property: 'eurozoneMember' },
+        nato: { type: 'boolean', label: 'NATO member', otherLabel: 'Non-NATO', property: 'natoMember' },
+        leaning: { type: 'leaning', label: 'Political leaning', property: 'currentPoliticalLeaningLabel' }
     };
     let currentLayer = 'eu';
+
+    const LEANING_COLORS = {
+        'Far Left': '#8b2635',
+        'Left': '#b23a4e',
+        'Center-Left': '#d68a95',
+        'Center': '#e0d5bd',
+        'Center-Right': '#8aa8c4',
+        'Right': '#4a7ba6',
+        'Far Right': '#234b6e'
+    };
+    const NO_DATA_COLOR = '#9c9186';
 
     const MICRO_COUNTRY_CODES = ['VA', 'SM', 'MC', 'LI', 'AD', 'MT'];
 
     let geoJsonLayer = null;
     let microMarkers = [];
 
+    function colorForProperties(p) {
+        const layer = LAYERS[currentLayer];
+        if (layer.type === 'leaning') {
+            const label = p[layer.property];
+            return (label && LEANING_COLORS[label]) ? LEANING_COLORS[label] : NO_DATA_COLOR;
+        }
+        return p[layer.property] ? '#b8945f' : '#9c9186';
+    }
+
     function fact(label, value) {
         return `<div class="fact"><span class="label">${label}</span><span class="value ${value ? 'yes' : 'no'}">${value ? 'Yes' : 'No'}</span></div>`;
     }
 
     function buildPopupContent(p, isFavorited) {
+        let extra = '';
+        if (p.currentRulingParty) {
+            extra += `<div class="ruling-party">Governed by: ${p.currentRulingParty}</div>`;
+        }
+        if (p.currentPoliticalLeaningLabel) {
+            const score = p.currentPoliticalLeaning != null ? ` (${p.currentPoliticalLeaning})` : '';
+            extra += `<div class="fact"><span class="label">Leaning</span><span class="value">${p.currentPoliticalLeaningLabel}${score}</span></div>`;
+        }
+
         return `
                 <div class="country-popup">
                     <div class="popup-header">
@@ -161,24 +191,37 @@
                     ${fact('Schengen', p.schengenMember)}
                     ${fact('Eurozone', p.eurozoneMember)}
                     ${fact('NATO', p.natoMember)}
+                    ${extra}
                     <a class="profile-link" href="/countries/${p.id}">Full profile &rarr;</a>
                 </div>
             `;
     }
 
     function styleForFeature(feature) {
-        const isActive = feature.properties[LAYERS[currentLayer].property];
         return {
             color: '#1c2b3a',
             weight: 1,
-            fillColor: isActive ? '#b8945f' : '#9c9186',
+            fillColor: colorForProperties(feature.properties),
             fillOpacity: 0.9
         };
     }
 
     function updateLegend() {
-        document.getElementById('legend-active-label').textContent = LAYERS[currentLayer].label;
-        document.getElementById('legend-inactive-label').textContent = LAYERS[currentLayer].otherLabel;
+        const legend = document.getElementById('legend');
+        const layer = LAYERS[currentLayer];
+
+        if (layer.type === 'leaning') {
+            legend.innerHTML = Object.entries(LEANING_COLORS).map(([label, color]) => `
+                    <div><span class="swatch" style="background: ${color}"></span><span>${label}</span></div>
+                `).join('') + `
+                    <div><span class="swatch" style="background: ${NO_DATA_COLOR}"></span><span>No data</span></div>
+                `;
+        } else {
+            legend.innerHTML = `
+                    <div><span class="swatch" style="background: #b8945f"></span><span>${layer.label}</span></div>
+                    <div><span class="swatch" style="background: #9c9186"></span><span>${layer.otherLabel}</span></div>
+                `;
+        }
     }
 
     function switchLayer(layerKey) {
@@ -193,9 +236,7 @@
         }
 
         microMarkers.forEach(({ marker, properties }) => {
-            marker.setStyle({
-                fillColor: properties[LAYERS[layerKey].property] ? '#b8945f' : '#9c9186'
-            });
+            marker.setStyle({ fillColor: colorForProperties(properties) });
         });
 
         updateLegend();
@@ -211,7 +252,7 @@
                 radius: 6,
                 color: '#ede7da',
                 weight: 1.5,
-                fillColor: p[LAYERS[currentLayer].property] ? '#b8945f' : '#9c9186',
+                fillColor: colorForProperties(p),
                 fillOpacity: 1
             }).addTo(map);
 
@@ -219,6 +260,8 @@
             microMarkers.push({ marker, properties: p });
         });
     }
+
+    updateLegend();
 
     fetchFavoriteIds().then(favoriteIds => {
         fetch('/api/countries/geojson')
@@ -236,7 +279,7 @@
                         const p = feature.properties;
                         lyr.bindPopup(buildPopupContent(p, favoriteIds.has(p.id)));
                         lyr.on('mouseover', () => lyr.setStyle({ fillColor: '#7a3b4a' }));
-                        lyr.on('mouseout', () => lyr.setStyle({ fillColor: p[LAYERS[currentLayer].property] ? '#b8945f' : '#9c9186' }));
+                        lyr.on('mouseout', () => lyr.setStyle({ fillColor: colorForProperties(p) }));
                     }
                 }).addTo(map);
 

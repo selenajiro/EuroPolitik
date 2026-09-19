@@ -36,8 +36,6 @@ public class CountryController {
 
     private final Geometry europeClip;
 
-    private volatile String cachedGeoJson;
-
     public CountryController(CountryService countryService, CountryProfileService countryProfileService) {
         this.countryService = countryService;
         this.countryProfileService = countryProfileService;
@@ -96,10 +94,6 @@ public class CountryController {
 
     @GetMapping(value = "/geojson", produces = MediaType.APPLICATION_JSON_VALUE)
     public String geoJson() {
-        if (cachedGeoJson != null) {
-            return cachedGeoJson;
-        }
-
         List<Country> countries = countryService.findAll();
 
         ObjectNode featureCollection = objectMapper.createObjectNode();
@@ -118,6 +112,11 @@ public class CountryController {
             properties.put("schengenMember", country.isSchengenMember());
             properties.put("eurozoneMember", country.isEurozoneMember());
             properties.put("natoMember", country.isNatoMember());
+            properties.put("currentRulingParty", country.getCurrentRulingParty());
+            properties.put("currentPoliticalLeaningLabel", country.getCurrentPoliticalLeaningLabel());
+            if (country.getCurrentPoliticalLeaning() != null) {
+                properties.put("currentPoliticalLeaning", country.getCurrentPoliticalLeaning());
+            }
 
             Point centroid = country.getGeometry().getCentroid();
             properties.put("centroidLat", centroid.getY());
@@ -133,8 +132,7 @@ public class CountryController {
         }
 
         try {
-            cachedGeoJson = objectMapper.writeValueAsString(featureCollection);
-            return cachedGeoJson;
+            return objectMapper.writeValueAsString(featureCollection);
         } catch (Exception e) {
             throw new RuntimeException("Failed to serialize GeoJSON response", e);
         }
