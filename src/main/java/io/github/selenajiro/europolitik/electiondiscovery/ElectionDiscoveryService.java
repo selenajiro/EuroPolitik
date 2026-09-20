@@ -12,6 +12,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.client.HttpClientErrorException;
+import org.springframework.web.client.ResourceAccessException;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -233,6 +234,13 @@ public class ElectionDiscoveryService {
                 long backoff = BASE_BACKOFF_MS * attempt;
                 log.warn("Rate limited, backing off {}ms (attempt {}/{})", backoff, attempt, MAX_RETRIES);
                 sleep(backoff);
+            } catch (ResourceAccessException e) {
+                attempt++;
+                if (attempt > MAX_RETRIES) {
+                    throw e;
+                }
+                log.warn("Network error ({}), retrying in {}ms (attempt {}/{})", e.getMessage(), BASE_BACKOFF_MS, attempt, MAX_RETRIES);
+                sleep(BASE_BACKOFF_MS);
             }
         }
     }
