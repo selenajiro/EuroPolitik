@@ -31,6 +31,7 @@ public class PoliticalLeaningService {
     private static final Pattern TRAILING_PAREN = Pattern.compile("\\s*\\([^)]*\\)\\s*$");
     private static final Pattern COMBINING_MARKS = Pattern.compile("\\p{M}");
     private static final String[] COUNTRY_SUFFIX_JOINERS = { "of", "for" };
+    private static final String[] GENERIC_TRAILING_WORDS = { "Party", "Parties" };
 
     private final CountryRepository countryRepository;
     private final PoliticalPartyRepository politicalPartyRepository;
@@ -72,6 +73,7 @@ public class PoliticalLeaningService {
 
                 for (String token : tokens) {
                     String normalizedToken = normalize(token, country.getName());
+                    String looseToken = stripTrailingWord(normalizedToken, GENERIC_TRAILING_WORDS);
 
                     for (PoliticalParty party : parties) {
                         if (party.getLeftRight() == null || matchedPartyIds.contains(party.getId())) {
@@ -79,8 +81,16 @@ public class PoliticalLeaningService {
                         }
                         String normalizedShort = normalize(party.getShortName(), country.getName());
                         String normalizedName = normalize(party.getName(), country.getName());
+
                         boolean matched = normalizedToken.equalsIgnoreCase(normalizedShort)
                                 || normalizedToken.equalsIgnoreCase(normalizedName);
+
+                        if (!matched && !looseToken.isEmpty()) {
+                            String looseName = stripTrailingWord(normalizedName, GENERIC_TRAILING_WORDS);
+                            String looseShort = stripTrailingWord(normalizedShort, GENERIC_TRAILING_WORDS);
+                            matched = looseToken.equalsIgnoreCase(looseName) || looseToken.equalsIgnoreCase(looseShort);
+                        }
+
                         if (matched) {
                             sum = sum.add(party.getLeftRight());
                             matches++;
@@ -156,6 +166,17 @@ public class PoliticalLeaningService {
         result = COMBINING_MARKS.matcher(result).replaceAll("");
 
         return result;
+    }
+
+    private String stripTrailingWord(String text, String... words) {
+        for (String word : words) {
+            String suffix = " " + word;
+            if (text.length() > suffix.length()
+                    && text.regionMatches(true, text.length() - suffix.length(), suffix, 0, suffix.length())) {
+                return text.substring(0, text.length() - suffix.length()).trim();
+            }
+        }
+        return text;
     }
 
     private String toLabel(BigDecimal score) {
