@@ -116,7 +116,8 @@ public class ElectionDiscoveryService {
         int read = 0;
         int inserted = 0;
         int skipped = 0;
-        int year = LocalDate.now().getYear();
+        int currentYear = LocalDate.now().getYear();
+        List<Integer> years = List.of(currentYear - 1, currentYear);
 
         try {
             List<Country> countries = countryRepository.findAll();
@@ -125,32 +126,34 @@ public class ElectionDiscoveryService {
                 String categoryCountryName = CATEGORY_NAME_ALIASES.getOrDefault(country.getName(), country.getName());
                 String demonym = DEMONYMS.get(country.getName());
 
-                List<String> titles;
-                try {
-                    sleepBetweenCalls();
-                    titles = withRetryOnRateLimit(() -> client.fetchElectionCategoryMembers(categoryCountryName, year));
-                } catch (Exception e) {
-                    log.warn("Category lookup failed for {}: {}", country.getName(), e.getMessage());
-                    skipped++;
-                    continue;
-                }
-
-                for (String title : titles) {
-                    read++;
-                    if (!isNationalLevelElection(title, country.getName(), demonym)) {
+                for (int year : years) {
+                    List<String> titles;
+                    try {
+                        sleepBetweenCalls();
+                        titles = withRetryOnRateLimit(() -> client.fetchElectionCategoryMembers(categoryCountryName, year));
+                    } catch (Exception e) {
+                        log.warn("Category lookup failed for {} ({}): {}", country.getName(), year, e.getMessage());
                         skipped++;
                         continue;
                     }
 
-                    if (politicalEventRepository.findBySourceArticleTitle(title).isPresent()) {
-                        skipped++;
-                        continue;
-                    }
+                    for (String title : titles) {
+                        read++;
+                        if (!isNationalLevelElection(title, country.getName(), demonym)) {
+                            skipped++;
+                            continue;
+                        }
 
-                    PoliticalEvent event = buildEvent(country, title, year);
-                    politicalEventRepository.save(event);
-                    inserted++;
-                    log.info("Discovered election for {}: {} ({})", country.getName(), title, event.getEventDate());
+                        if (politicalEventRepository.findBySourceArticleTitle(title).isPresent()) {
+                            skipped++;
+                            continue;
+                        }
+
+                        PoliticalEvent event = buildEvent(country, title, year);
+                        politicalEventRepository.save(event);
+                        inserted++;
+                        log.info("Discovered election for {}: {} ({})", country.getName(), title, event.getEventDate());
+                    }
                 }
             }
 
