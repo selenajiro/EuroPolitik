@@ -27,9 +27,10 @@ public class PoliticalLeaningService {
 
     private static final Logger log = LoggerFactory.getLogger(PoliticalLeaningService.class);
     private static final String SOURCE = "derived-political-leaning";
-    private static final Pattern TOKEN_SPLIT = Pattern.compile("[,()/]|–|—");
+    private static final Pattern TOKEN_SPLIT = Pattern.compile("[,()/]");
     private static final Pattern TRAILING_PAREN = Pattern.compile("\\s*\\([^)]*\\)\\s*$");
     private static final Pattern COMBINING_MARKS = Pattern.compile("\\p{M}");
+    private static final String[] COUNTRY_SUFFIX_JOINERS = { "of", "for" };
 
     private final CountryRepository countryRepository;
     private final PoliticalPartyRepository politicalPartyRepository;
@@ -135,6 +136,21 @@ public class PoliticalLeaningService {
         }
 
         result = TRAILING_PAREN.matcher(result).replaceAll("").trim();
+
+        // Wikipedia article/link text for a party is often disambiguated
+        // with the country name ("Socialist Party of Albania", "Democrats
+        // for Andorra"); ParlGov's per-country rows normally don't repeat
+        // it. Strip a trailing " of/for {Country}" if present.
+        if (countryName != null) {
+            for (String joiner : COUNTRY_SUFFIX_JOINERS) {
+                String suffix = " " + joiner + " " + countryName;
+                if (result.length() > suffix.length()
+                        && result.regionMatches(true, result.length() - suffix.length(), suffix, 0, suffix.length())) {
+                    result = result.substring(0, result.length() - suffix.length()).trim();
+                    break;
+                }
+            }
+        }
 
         result = Normalizer.normalize(result, Normalizer.Form.NFD);
         result = COMBINING_MARKS.matcher(result).replaceAll("");
