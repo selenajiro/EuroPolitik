@@ -33,7 +33,7 @@ public class WikipediaClient {
 
         this.restClient = restClientBuilder
                 .requestFactory(requestFactory)
-                .defaultHeader("User-Agent", "EuroPolitik-portfolio-project/1.0")
+                .defaultHeader("User-Agent", "EuroPolitik/1.0 (https://github.com/selenajiro/EuroPolitik;)")
                 .build();
     }
 
