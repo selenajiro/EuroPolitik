@@ -14,7 +14,8 @@ public record PoliticalEventResponse(
         LocalDateTime createdAt,
         LocalDateTime updatedAt,
         Long countryId,
-        String countryName
+        String countryName,
+        String countryIsoCode
 ) {
     public static PoliticalEventResponse from(PoliticalEvent event) {
         return new PoliticalEventResponse(
@@ -28,7 +29,8 @@ public record PoliticalEventResponse(
                 event.getCreatedAt(),
                 event.getUpdatedAt(),
                 event.getCountry() != null ? event.getCountry().getId() : null,
-                event.getCountry() != null ? event.getCountry().getName() : null
+                event.getCountry() != null ? event.getCountry().getName() : null,
+                event.getCountry() != null ? event.getCountry().getIsoCode() : null
         );
     }
 }
