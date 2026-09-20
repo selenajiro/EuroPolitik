@@ -5,7 +5,11 @@ import java.time.LocalDate;
 public record FeedItem(
         String type,
         String title,
+        String description,
         LocalDate date,
         Long countryId,
-        String countryName
+        String countryName,
+        String countryIsoCode,
+        String sourceName,
+        String sourceUrl
 ) {}

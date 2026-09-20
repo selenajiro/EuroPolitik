@@ -1,8 +1,11 @@
 package io.github.selenajiro.europolitik.politicalevent;
 
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 
+import java.time.LocalDate;
 import java.util.List;
 import java.util.Optional;
 
@@ -19,6 +22,12 @@ public interface PoliticalEventRepository extends JpaRepository<PoliticalEvent, 
 
     @Query("SELECT e FROM PoliticalEvent e LEFT JOIN FETCH e.country WHERE e.country.id IN :countryIds ORDER BY e.eventDate DESC")
     List<PoliticalEvent> findAllByCountryIdIn(List<Long> countryIds);
+
+    @Query("SELECT e FROM PoliticalEvent e LEFT JOIN FETCH e.country WHERE e.eventDate >= :cutoff ORDER BY e.eventDate DESC")
+    List<PoliticalEvent> findRecentWithCountry(@Param("cutoff") LocalDate cutoff, Pageable pageable);
+
+    @Query("SELECT e FROM PoliticalEvent e LEFT JOIN FETCH e.country WHERE e.country.id IN :countryIds AND e.eventDate >= :cutoff ORDER BY e.eventDate DESC")
+    List<PoliticalEvent> findRecentByCountryIdIn(@Param("countryIds") List<Long> countryIds, @Param("cutoff") LocalDate cutoff, Pageable pageable);
 
     Optional<PoliticalEvent> findBySourceElectionId(Long sourceElectionId);
 
