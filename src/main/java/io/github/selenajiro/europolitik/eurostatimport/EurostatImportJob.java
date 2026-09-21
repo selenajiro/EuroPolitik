@@ -27,4 +27,10 @@ public class EurostatImportJob {
         log.info("Starting scheduled Eurostat unemployment import");
         eurostatImportService.importIndicator(EurostatIndicators.UNEMPLOYMENT_RATE);
     }
+
+    @Scheduled(cron = "${europolitik.import.eurostat.gdp.cron:0 0 5 * * MON}")
+    public void importGdpPerCapita() {
+        log.info("Starting scheduled Eurostat GDP per capita import");
+        eurostatImportService.importIndicator(EurostatIndicators.GDP_PER_CAPITA);
+    }
 }

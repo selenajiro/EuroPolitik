@@ -20,6 +20,14 @@ public class EurostatIndicators {
             "https://ec.europa.eu/eurostat/databrowser/view/une_rt_a/default/table"
     );
 
+    public static final EurostatIndicatorSpec GDP_PER_CAPITA = new EurostatIndicatorSpec(
+            "GDP_PER_CAPITA",
+            "nama_10_pc",
+            Map.of("unit", "CP_EUR_HAB", "na_item", "B1GQ", "lastTimePeriod", "15"),
+            "EUR",
+            "https://ec.europa.eu/eurostat/databrowser/product/view/nama_10_pc"
+    );
+
     private EurostatIndicators() {
     }
 }
