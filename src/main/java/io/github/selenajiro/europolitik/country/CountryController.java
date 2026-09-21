@@ -4,6 +4,8 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
+import io.github.selenajiro.europolitik.countrystatistic.CountryStatistic;
+import io.github.selenajiro.europolitik.countrystatistic.CountryStatisticRepository;
 import org.locationtech.jts.geom.Coordinate;
 import org.locationtech.jts.geom.Geometry;
 import org.locationtech.jts.geom.GeometryFactory;
@@ -17,6 +19,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -31,14 +34,18 @@ public class CountryController {
 
     private final CountryService countryService;
     private final CountryProfileService countryProfileService;
+    private final CountryStatisticRepository countryStatisticRepository;
     private final ObjectMapper objectMapper = new ObjectMapper();
     private final GeoJsonWriter geoJsonWriter = new GeoJsonWriter(4);
 
     private final Geometry europeClip;
 
-    public CountryController(CountryService countryService, CountryProfileService countryProfileService) {
+    public CountryController(CountryService countryService,
+                             CountryProfileService countryProfileService,
+                             CountryStatisticRepository countryStatisticRepository) {
         this.countryService = countryService;
         this.countryProfileService = countryProfileService;
+        this.countryStatisticRepository = countryStatisticRepository;
         this.geoJsonWriter.setEncodeCRS(false);
 
         GeometryFactory geometryFactory = new GeometryFactory(new PrecisionModel(), 4326);
@@ -95,6 +102,7 @@ public class CountryController {
     @GetMapping(value = "/geojson", produces = MediaType.APPLICATION_JSON_VALUE)
     public String geoJson() {
         List<Country> countries = countryService.findAll();
+        Map<Long, Map<String, CountryStatistic>> latestStats = latestStatisticsByCountry();
 
         ObjectNode featureCollection = objectMapper.createObjectNode();
         featureCollection.put("type", "FeatureCollection");
@@ -118,6 +126,11 @@ public class CountryController {
                 properties.put("currentPoliticalLeaning", country.getCurrentPoliticalLeaning());
             }
 
+            Map<String, CountryStatistic> stats = latestStats.getOrDefault(country.getId(), Map.of());
+            putStatistic(properties, stats, "POPULATION", "population");
+            putStatistic(properties, stats, "UNEMPLOYMENT_RATE", "unemploymentRate");
+            putStatistic(properties, stats, "GDP_PER_CAPITA", "gdpPerCapita");
+
             Point centroid = country.getGeometry().getCentroid();
             properties.put("centroidLat", centroid.getY());
             properties.put("centroidLng", centroid.getX());
@@ -135,6 +148,27 @@ public class CountryController {
             return objectMapper.writeValueAsString(featureCollection);
         } catch (Exception e) {
             throw new RuntimeException("Failed to serialize GeoJSON response", e);
+        }
+    }
+
+    private Map<Long, Map<String, CountryStatistic>> latestStatisticsByCountry() {
+        Map<Long, Map<String, CountryStatistic>> result = new HashMap<>();
+        for (CountryStatistic stat : countryStatisticRepository.findAllWithCountry()) {
+            Long countryId = stat.getCountry().getId();
+            Map<String, CountryStatistic> byIndicator = result.computeIfAbsent(countryId, k -> new HashMap<>());
+            CountryStatistic existing = byIndicator.get(stat.getIndicator());
+            if (existing == null || stat.getYear() > existing.getYear()) {
+                byIndicator.put(stat.getIndicator(), stat);
+            }
+        }
+        return result;
+    }
+
+    private void putStatistic(ObjectNode properties, Map<String, CountryStatistic> stats, String indicator, String jsonKey) {
+        CountryStatistic stat = stats.get(indicator);
+        if (stat != null && stat.getValue() != null) {
+            properties.put(jsonKey, stat.getValue());
+            properties.put(jsonKey + "Year", stat.getYear());
         }
     }
 }
