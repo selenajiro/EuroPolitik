@@ -55,15 +55,13 @@
         .layer-picker {
             position: absolute; left: 24px; z-index: 1000;
             background: var(--ocean-deep); border-radius: 3px; padding: 4px;
-            display: flex; gap: 2px; box-shadow: 0 4px 20px rgba(0,0,0,0.35);
-        }
-        .legend {
-            max-height: calc(100vh - 200px); overflow-y: auto;
+            display: flex; flex-wrap: wrap; gap: 2px; max-width: 420px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.35);
         }
         .layer-btn {
             font-family: 'IBM Plex Sans', sans-serif; font-size: 12px; padding: 6px 10px;
             border: none; background: transparent; color: var(--cream); opacity: 0.6;
-            cursor: pointer; border-radius: 2px;
+            cursor: pointer; border-radius: 2px; white-space: nowrap;
         }
         .layer-btn.active { opacity: 1; background: rgba(184,148,95,0.2); color: var(--land-eu); }
 
@@ -76,6 +74,9 @@
         }
         .legend div { display: flex; align-items: center; gap: 8px; margin: 4px 0; }
         .legend .swatch { width: 12px; height: 12px; border-radius: 2px; flex-shrink: 0; }
+        .legend .gradient-label { font-size: 12px; opacity: 0.85; margin-bottom: 6px; }
+        .legend .gradient-bar { width: 160px; height: 10px; border-radius: 2px; margin-bottom: 4px; }
+        .legend .gradient-range { display: flex; justify-content: space-between; font-size: 11px; opacity: 0.7; width: 160px; margin-bottom: 6px; }
 
         .country-popup { font-family: 'IBM Plex Sans', sans-serif; min-width: 180px; }
         .country-popup .popup-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
@@ -120,6 +121,9 @@
     <button class="layer-btn" data-layer="eurozone" onclick="switchLayer('eurozone')">Eurozone</button>
     <button class="layer-btn" data-layer="nato" onclick="switchLayer('nato')">NATO</button>
     <button class="layer-btn" data-layer="leaning" onclick="switchLayer('leaning')">Leaning</button>
+    <button class="layer-btn" data-layer="population" onclick="switchLayer('population')">Population</button>
+    <button class="layer-btn" data-layer="unemployment" onclick="switchLayer('unemployment')">Unemployment</button>
+    <button class="layer-btn" data-layer="gdp" onclick="switchLayer('gdp')">GDP/capita</button>
 </div>
 
 <div class="legend" id="legend"></div>
@@ -146,9 +150,22 @@
         schengen: { type: 'boolean', label: 'Schengen member', otherLabel: 'Non-Schengen', property: 'schengenMember' },
         eurozone: { type: 'boolean', label: 'Eurozone member', otherLabel: 'Non-Eurozone', property: 'eurozoneMember' },
         nato: { type: 'boolean', label: 'NATO member', otherLabel: 'Non-NATO', property: 'natoMember' },
-        leaning: { type: 'leaning', label: 'Political leaning', property: 'currentPoliticalLeaningLabel' }
+        leaning: { type: 'leaning', label: 'Political leaning', property: 'currentPoliticalLeaningLabel' },
+        population: {
+            type: 'continuous', label: 'Population', property: 'population', log: true,
+            colors: ['#16202b', '#3d5a80', '#bcd4e6'], format: v => formatCompact(v)
+        },
+        unemployment: {
+            type: 'continuous', label: 'Unemployment rate', property: 'unemploymentRate', log: false,
+            colors: ['#e8dfc8', '#c17a4f', '#6b2737'], format: v => v.toFixed(1) + '%'
+        },
+        gdp: {
+            type: 'continuous', label: 'GDP per capita', property: 'gdpPerCapita', log: true,
+            colors: ['#e9e4d0', '#7a9463', '#2f4a2f'], format: v => '\u20ac' + formatCompact(v)
+        }
     };
     let currentLayer = 'eu';
+    let continuousStats = {};
 
     // Red = left, blue = right -- the standard European convention
     // (matches the EU Parliament's own hemicycle and most European
@@ -169,11 +186,60 @@
     let geoJsonLayer = null;
     let microMarkers = [];
 
+    function formatCompact(v) {
+        if (v >= 1_000_000) return (v / 1_000_000).toFixed(1) + 'M';
+        if (v >= 1_000) return (v / 1_000).toFixed(0) + 'k';
+        return String(Math.round(v));
+    }
+
+    function blendHex(a, b, t) {
+        const av = parseInt(a.slice(1), 16), bv = parseInt(b.slice(1), 16);
+        const ar = (av >> 16) & 255, ag = (av >> 8) & 255, ab = av & 255;
+        const br = (bv >> 16) & 255, bg = (bv >> 8) & 255, bb = bv & 255;
+        const r = Math.round(ar + (br - ar) * t);
+        const g = Math.round(ag + (bg - ag) * t);
+        const bl = Math.round(ab + (bb - ab) * t);
+        return `#${[r, g, bl].map(x => x.toString(16).padStart(2, '0')).join('')}`;
+    }
+
+    function interpolateColor(colors, t) {
+        const scaled = t * (colors.length - 1);
+        const idx = Math.min(Math.floor(scaled), colors.length - 2);
+        const frac = scaled - idx;
+        return blendHex(colors[idx], colors[idx + 1], frac);
+    }
+
+    function computeContinuousStats(data) {
+        ['population', 'unemployment', 'gdp'].forEach(key => {
+            const layer = LAYERS[key];
+            const values = data.features
+                .map(f => f.properties[layer.property])
+                .filter(v => v != null && !isNaN(v));
+            continuousStats[key] = values.length ? { min: Math.min(...values), max: Math.max(...values) } : null;
+        });
+    }
+
+    function colorForContinuous(layerKey, value) {
+        const layer = LAYERS[layerKey];
+        const stats = continuousStats[layerKey];
+        if (value == null || isNaN(value) || !stats) return NO_DATA_COLOR;
+
+        const toScale = v => layer.log ? Math.log(Math.max(v, 1)) : v;
+        const lo = toScale(stats.min);
+        const hi = toScale(stats.max);
+        const t = hi === lo ? 1 : Math.max(0, Math.min(1, (toScale(value) - lo) / (hi - lo)));
+
+        return interpolateColor(layer.colors, t);
+    }
+
     function colorForProperties(p) {
         const layer = LAYERS[currentLayer];
         if (layer.type === 'leaning') {
             const label = p[layer.property];
             return (label && LEANING_COLORS[label]) ? LEANING_COLORS[label] : NO_DATA_COLOR;
+        }
+        if (layer.type === 'continuous') {
+            return colorForContinuous(currentLayer, p[layer.property]);
         }
         return p[layer.property] ? '#b8945f' : '#9c9186';
     }
@@ -192,6 +258,15 @@
         if (p.currentPoliticalLeaningLabel) {
             const score = p.currentPoliticalLeaning != null ? ` (${p.currentPoliticalLeaning})` : '';
             extra += `<div class="fact"><span class="label">Leaning</span><span class="value">${p.currentPoliticalLeaningLabel}${score}</span></div>`;
+        }
+        if (p.population != null) {
+            extra += `<div class="fact"><span class="label">Population${p.populationYear ? ` (${p.populationYear})` : ''}</span><span class="value">${formatCompact(p.population)}</span></div>`;
+        }
+        if (p.unemploymentRate != null) {
+            extra += `<div class="fact"><span class="label">Unemployment${p.unemploymentRateYear ? ` (${p.unemploymentRateYear})` : ''}</span><span class="value">${Number(p.unemploymentRate).toFixed(1)}%</span></div>`;
+        }
+        if (p.gdpPerCapita != null) {
+            extra += `<div class="fact"><span class="label">GDP/capita${p.gdpPerCapitaYear ? ` (${p.gdpPerCapitaYear})` : ''}</span><span class="value">\u20ac${formatCompact(p.gdpPerCapita)}</span></div>`;
         }
 
         return `
@@ -229,6 +304,18 @@
                 `).join('') + `
                     <div><span class="swatch" style="background: ${NO_DATA_COLOR}"></span><span>No data</span></div>
                 `;
+        } else if (layer.type === 'continuous') {
+            const stats = continuousStats[currentLayer];
+            if (stats) {
+                legend.innerHTML = `
+                        <div class="gradient-label">${layer.label}</div>
+                        <div class="gradient-bar" style="background: linear-gradient(to right, ${layer.colors.join(', ')})"></div>
+                        <div class="gradient-range"><span>${layer.format(stats.min)}</span><span>${layer.format(stats.max)}</span></div>
+                        <div><span class="swatch" style="background: ${NO_DATA_COLOR}"></span><span>No data</span></div>
+                    `;
+            } else {
+                legend.innerHTML = `<div class="gradient-label">${layer.label}</div><div class="empty">No data yet</div>`;
+            }
         } else {
             legend.innerHTML = `
                     <div><span class="swatch" style="background: #b8945f"></span><span>${layer.label}</span></div>
@@ -291,6 +378,9 @@
                 if (!data.features || data.features.length === 0) {
                     throw new Error('Response had no country features');
                 }
+                computeContinuousStats(data);
+                if (currentLayer !== 'eu') updateLegend();
+
                 geoJsonLayer = L.geoJSON(data, {
                     style: styleForFeature,
                     onEachFeature: (feature, lyr) => {
