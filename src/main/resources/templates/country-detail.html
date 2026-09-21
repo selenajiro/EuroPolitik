@@ -32,6 +32,11 @@
         .flowing-list a { color: var(--land-eu); text-decoration: none; }
         .flowing-list span.plain { color: var(--cream); opacity: 0.8; }
         .empty { color: #6b7378; font-size: 14px; font-style: italic; }
+        .hemicycle { width: 100%; max-width: 440px; height: auto; display: block; }
+        .hemicycle-legend { display: flex; flex-wrap: wrap; gap: 10px 16px; margin-top: 12px; font-size: 12px; }
+        .hemicycle-legend-item { display: flex; align-items: center; gap: 6px; }
+        .hemicycle-legend-item .swatch { width: 10px; height: 10px; border-radius: 2px; flex-shrink: 0; }
+        .hemicycle-total { font-size: 12px; opacity: 0.6; margin-top: 6px; }
     </style>
 </head>
 <body>
@@ -68,6 +73,80 @@
             : '<span class="muted">None</span>';
     }
 
+    // Same 7-stop red-to-blue scale used on the map's leaning layer, applied
+    // continuously so each party's own left-right score gets its own shade.
+    function colorForLeftRight(value) {
+        if (value == null) return '#9c9186';
+        const stops = ['#8b2635', '#b23a4e', '#d68a95', '#e0d5bd', '#8aa8c4', '#4a7ba6', '#234b6e'];
+        const t = Math.max(0, Math.min(1, value / 10));
+        const scaled = t * (stops.length - 1);
+        const idx = Math.min(Math.floor(scaled), stops.length - 2);
+        const frac = scaled - idx;
+        return blendHex(stops[idx], stops[idx + 1], frac);
+    }
+
+    function blendHex(a, b, t) {
+        const ah = parseInt(a.slice(1), 16), bh = parseInt(b.slice(1), 16);
+        const ar = (ah >> 16) & 255, ag = (ah >> 8) & 255, ab = ah & 255;
+        const br = (bh >> 16) & 255, bg = (bh >> 8) & 255, bb = bh & 255;
+        const r = Math.round(ar + (br - ar) * t);
+        const g = Math.round(ag + (bg - ag) * t);
+        const bl = Math.round(ab + (bb - ab) * t);
+        return `#${[r, g, bl].map(x => x.toString(16).padStart(2, '0')).join('')}`;
+    }
+
+    function polarPoint(cx, cy, r, angleDeg) {
+        const rad = angleDeg * Math.PI / 180;
+        return { x: cx + r * Math.cos(rad), y: cy - r * Math.sin(rad) };
+    }
+
+    // Half-donut wedge from startAngle to endAngle (180=left, 90=top, 0=right).
+    function wedgePath(cx, cy, rOuter, rInner, startAngle, endAngle) {
+        const p1 = polarPoint(cx, cy, rOuter, startAngle);
+        const p2 = polarPoint(cx, cy, rOuter, endAngle);
+        const p3 = polarPoint(cx, cy, rInner, endAngle);
+        const p4 = polarPoint(cx, cy, rInner, startAngle);
+        const largeArc = (startAngle - endAngle) > 180 ? 1 : 0;
+        return `M ${p1.x.toFixed(2)} ${p1.y.toFixed(2)} A ${rOuter} ${rOuter} 0 ${largeArc} 1 ${p2.x.toFixed(2)} ${p2.y.toFixed(2)} L ${p3.x.toFixed(2)} ${p3.y.toFixed(2)} A ${rInner} ${rInner} 0 ${largeArc} 0 ${p4.x.toFixed(2)} ${p4.y.toFixed(2)} Z`;
+    }
+
+    function renderHemicycle(composition) {
+        const total = composition.reduce((sum, p) => sum + (p.seats || 0), 0);
+        if (total === 0) return '<div class="empty">No seat data</div>';
+
+        // Left-to-right by ideology, matching real hemicycle seating convention.
+        const sorted = [...composition].sort((a, b) => {
+            if (a.leftRight == null && b.leftRight == null) return 0;
+            if (a.leftRight == null) return 1;
+            if (b.leftRight == null) return -1;
+            return a.leftRight - b.leftRight;
+        });
+
+        const cx = 220, cy = 190, rOuter = 180, rInner = 80;
+        let angle = 180;
+        const wedges = sorted.map(p => {
+            const span = (p.seats / total) * 180;
+            const start = angle;
+            const end = angle - span;
+            angle = end;
+            const path = wedgePath(cx, cy, rOuter, rInner, start, end);
+            return `<path d="${path}" fill="${colorForLeftRight(p.leftRight)}" stroke="#1c2b3a" stroke-width="1"><title>${p.partyName}: ${p.seats} seats</title></path>`;
+        }).join('');
+
+        const legend = sorted.map(p => `
+                <div class="hemicycle-legend-item">
+                    <span class="swatch" style="background: ${colorForLeftRight(p.leftRight)}"></span>
+                    <span>${p.partyShortName || p.partyName} &mdash; ${p.seats}</span>
+                </div>
+            `).join('');
+
+        return `
+                <svg viewBox="0 0 440 200" class="hemicycle">${wedges}</svg>
+                <div class="hemicycle-legend">${legend}</div>
+                <div class="hemicycle-total">${total} seats total</div>
+            `;
+    }
+
     Promise.all([
         fetch(`/api/countries/${id}/profile`).then(res => {
             if (!res.ok) throw new Error(`Server responded with status ${res.status}`);
@@ -87,6 +166,7 @@
 
             const pendingElections = profile.politicalEvents.filter(e => e.eventType === 'ELECTION_HELD');
             const hasElectionData = profile.elections.length || pendingElections.length;
+            const hasStatus = c.currentRulingParty || c.currentPoliticalLeaningLabel || c.currentParliamentLeaningLabel;
 
             const wrap = document.getElementById('content');
             wrap.insertAdjacentHTML('beforeend', `
@@ -101,6 +181,22 @@
                         <span class="badge ${c.eurozoneMember ? 'yes' : 'no'}">Eurozone</span>
                         <span class="badge ${c.natoMember ? 'yes' : 'no'}">NATO</span>
                     </div>
+
+                    ${hasStatus ? `
+                        <section>
+                            <h2>Current status</h2>
+                            ${c.currentRulingParty ? row(c.currentRulingParty.includes(',') ? 'Governing coalition' : 'Governed by', c.currentRulingParty) : ''}
+                            ${c.currentPoliticalLeaningLabel ? row('Government leaning', `${c.currentPoliticalLeaningLabel}${c.currentPoliticalLeaning != null ? ' (' + c.currentPoliticalLeaning + ')' : ''}`) : ''}
+                            ${c.currentParliamentLeaningLabel ? row('Parliament leaning', `${c.currentParliamentLeaningLabel}${c.currentParliamentLeaning != null ? ' (' + c.currentParliamentLeaning + ')' : ''}`) : ''}
+                        </section>
+                    ` : ''}
+
+                    ${profile.currentComposition.length ? `
+                        <section>
+                            <h2>Parliament composition</h2>
+                            ${renderHemicycle(profile.currentComposition)}
+                        </section>
+                    ` : ''}
 
                     <section>
                         <h2>Neighbors</h2>

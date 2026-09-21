@@ -412,7 +412,10 @@
         }
 
         authFetch('/api/feed')
-            .then(res => res.json())
+            .then(res => {
+                if (!res.ok) throw new Error(`Server responded with status ${res.status}`);
+                return res.json();
+            })
             .then(data => {
                 let html = '';
                 if (!data.personalized) {
@@ -422,21 +425,25 @@
                     html += `<p class="empty">No recent activity to show.</p>`;
                 } else {
                     html += data.items.map(item => `
-                            <div class="feed-item">
-                                ${item.countryIsoCode ? `<img class="flag" src="https://flagcdn.com/w80/${item.countryIsoCode.toLowerCase()}.png" alt="">` : ''}
-                                <div class="body">
-                                    <div class="meta">${item.type === 'ELECTION' ? 'Election' : 'Event'} &middot; ${item.date}${item.countryName ? ` &middot; ${item.countryName}` : ''}</div>
-                                    <div class="title">${item.title}</div>
-                                    ${item.description ? `<div class="snippet">${item.description}</div>` : ''}
-                                    <div class="links">
-                                        ${item.countryId ? `<a href="/countries/${item.countryId}">Country profile &rarr;</a>` : ''}
-                                        ${item.sourceUrl ? `<a href="${item.sourceUrl}" target="_blank" rel="noopener">Read more &#8599;</a>` : ''}
-                                    </div>
+                        <div class="feed-item">
+                            ${item.countryIsoCode ? `<img class="flag" src="https://flagcdn.com/w80/${item.countryIsoCode.toLowerCase()}.png" alt="">` : ''}
+                            <div class="body">
+                                <div class="meta">${item.type === 'ELECTION' ? 'Election' : 'Event'} &middot; ${item.date}${item.countryName ? ` &middot; ${item.countryName}` : ''}</div>
+                                <div class="title">${item.title}</div>
+                                ${item.description ? `<div class="snippet">${item.description}</div>` : ''}
+                                <div class="links">
+                                    ${item.countryId ? `<a href="/countries/${item.countryId}">Country profile &rarr;</a>` : ''}
+                                    ${item.sourceUrl ? `<a href="${item.sourceUrl}" target="_blank" rel="noopener">Read more &#8599;</a>` : ''}
                                 </div>
                             </div>
-                        `).join('');
+                        </div>
+                    `).join('');
                 }
                 container.innerHTML = html;
+            })
+            .catch(err => {
+                container.innerHTML = `<p class="empty">Couldn't load your feed: ${err.message}</p>`;
+                console.error('Feed fetch failed:', err);
             });
     }
 

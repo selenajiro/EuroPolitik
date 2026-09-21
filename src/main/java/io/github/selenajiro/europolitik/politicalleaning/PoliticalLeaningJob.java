@@ -21,4 +21,10 @@ public class PoliticalLeaningJob {
         log.info("Starting political leaning computation");
         politicalLeaningService.computeLeanings();
     }
+
+    @Scheduled(cron = "${europolitik.import.parliament-leaning.cron:0 35 7 * * *}")
+    public void runParliament() {
+        log.info("Starting parliament leaning computation");
+        politicalLeaningService.computeParliamentLeanings();
+    }
 }

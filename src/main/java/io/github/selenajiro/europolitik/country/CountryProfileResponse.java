@@ -3,6 +3,7 @@ package io.github.selenajiro.europolitik.country;
 import io.github.selenajiro.europolitik.countrylanguage.CountryLanguageResponse;
 import io.github.selenajiro.europolitik.countrystatistic.CountryStatisticResponse;
 import io.github.selenajiro.europolitik.election.ElectionResponse;
+import io.github.selenajiro.europolitik.electionresult.PartySeatsResponse;
 import io.github.selenajiro.europolitik.mep.MepResponse;
 import io.github.selenajiro.europolitik.politicalevent.PoliticalEventResponse;
 import io.github.selenajiro.europolitik.politicalparty.PoliticalPartyResponse;
@@ -17,5 +18,6 @@ public record CountryProfileResponse(
         List<MepResponse> meps,
         List<PoliticalEventResponse> politicalEvents,
         List<CountryStatisticResponse> statistics,
-        List<CountryLanguageResponse> languages
+        List<CountryLanguageResponse> languages,
+        List<PartySeatsResponse> currentComposition
 ) {}

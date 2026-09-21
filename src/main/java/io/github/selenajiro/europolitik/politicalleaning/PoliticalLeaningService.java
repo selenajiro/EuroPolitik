@@ -2,6 +2,10 @@ package io.github.selenajiro.europolitik.politicalleaning;
 
 import io.github.selenajiro.europolitik.country.Country;
 import io.github.selenajiro.europolitik.country.CountryRepository;
+import io.github.selenajiro.europolitik.election.Election;
+import io.github.selenajiro.europolitik.election.ElectionRepository;
+import io.github.selenajiro.europolitik.electionresult.ElectionResult;
+import io.github.selenajiro.europolitik.electionresult.ElectionResultRepository;
 import io.github.selenajiro.europolitik.importrun.ImportRun;
 import io.github.selenajiro.europolitik.importrun.ImportRunRepository;
 import io.github.selenajiro.europolitik.politicalparty.PoliticalParty;
@@ -19,6 +23,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Optional;
 import java.util.Set;
 import java.util.regex.Pattern;
 
@@ -27,6 +32,8 @@ public class PoliticalLeaningService {
 
     private static final Logger log = LoggerFactory.getLogger(PoliticalLeaningService.class);
     private static final String SOURCE = "derived-political-leaning";
+    private static final String SOURCE_PARLIAMENT = "derived-parliament-leaning";
+    private static final String COMPOSITION_TYPE = "CURRENT_COMPOSITION";
     private static final Pattern TOKEN_SPLIT = Pattern.compile("[,()/]");
     private static final Pattern TRAILING_PAREN = Pattern.compile("\\s*\\([^)]*\\)\\s*$");
     private static final Pattern COMBINING_MARKS = Pattern.compile("\\p{M}");
@@ -35,19 +42,25 @@ public class PoliticalLeaningService {
 
     private final CountryRepository countryRepository;
     private final PoliticalPartyRepository politicalPartyRepository;
+    private final ElectionRepository electionRepository;
+    private final ElectionResultRepository electionResultRepository;
     private final ImportRunRepository importRunRepository;
 
     public PoliticalLeaningService(CountryRepository countryRepository,
                                    PoliticalPartyRepository politicalPartyRepository,
+                                   ElectionRepository electionRepository,
+                                   ElectionResultRepository electionResultRepository,
                                    ImportRunRepository importRunRepository) {
         this.countryRepository = countryRepository;
         this.politicalPartyRepository = politicalPartyRepository;
+        this.electionRepository = electionRepository;
+        this.electionResultRepository = electionResultRepository;
         this.importRunRepository = importRunRepository;
     }
 
     @Transactional
     public ImportRun computeLeanings() {
-        ImportRun run = startRun();
+        ImportRun run = startRun(SOURCE);
 
         int updated = 0;
         int skipped = 0;
@@ -126,6 +139,66 @@ public class PoliticalLeaningService {
         return run;
     }
 
+    @Transactional
+    public ImportRun computeParliamentLeanings() {
+        ImportRun run = startRun(SOURCE_PARLIAMENT);
+
+        int updated = 0;
+        int skipped = 0;
+
+        try {
+            List<Country> countries = countryRepository.findAll();
+            run.setRecordsRead(countries.size());
+
+            for (Country country : countries) {
+                Optional<Election> composition = electionRepository.findByCountryIdAndType(country.getId(), COMPOSITION_TYPE);
+                if (composition.isEmpty()) {
+                    skipped++;
+                    continue;
+                }
+
+                List<ElectionResult> results = electionResultRepository.findByElectionId(composition.get().getId());
+
+                BigDecimal weightedSum = BigDecimal.ZERO;
+                long totalSeats = 0;
+                List<String> matchedNames = new ArrayList<>();
+
+                for (ElectionResult result : results) {
+                    PoliticalParty party = result.getParty();
+                    Integer seats = result.getSeats();
+                    if (party == null || party.getLeftRight() == null || seats == null || seats <= 0) {
+                        continue;
+                    }
+                    weightedSum = weightedSum.add(party.getLeftRight().multiply(BigDecimal.valueOf(seats)));
+                    totalSeats += seats;
+                    matchedNames.add(party.getName() + " (" + seats + ")");
+                }
+
+                if (totalSeats == 0) {
+                    skipped++;
+                    continue;
+                }
+
+                BigDecimal average = weightedSum.divide(BigDecimal.valueOf(totalSeats), 1, RoundingMode.HALF_UP);
+                String label = toLabel(average);
+                country.setCurrentParliamentLeaning(average);
+                country.setCurrentParliamentLeaningLabel(label);
+                country.setParliamentLeaningComputedAt(LocalDateTime.now());
+                countryRepository.save(country);
+                updated++;
+                log.info("Parliament leaning for {}: {} ({}, seat-weighted across: {})",
+                        country.getName(), average, label, String.join(", ", matchedNames));
+            }
+
+            finishRun(run, "SUCCESS", 0, updated, skipped, null);
+        } catch (Exception e) {
+            log.error("Parliament leaning computation failed", e);
+            finishRun(run, "FAILED", 0, updated, skipped, e.getMessage());
+        }
+
+        return run;
+    }
+
     private List<String> tokenize(String text) {
         return Arrays.stream(TOKEN_SPLIT.split(text))
                 .map(String::trim)
@@ -147,10 +220,6 @@ public class PoliticalLeaningService {
 
         result = TRAILING_PAREN.matcher(result).replaceAll("").trim();
 
-        // Wikipedia article/link text for a party is often disambiguated
-        // with the country name ("Socialist Party of Albania", "Democrats
-        // for Andorra"); ParlGov's per-country rows normally don't repeat
-        // it. Strip a trailing " of/for {Country}" if present.
         if (countryName != null) {
             for (String joiner : COUNTRY_SUFFIX_JOINERS) {
                 String suffix = " " + joiner + " " + countryName;
@@ -190,9 +259,9 @@ public class PoliticalLeaningService {
         return "Far Right";
     }
 
-    private ImportRun startRun() {
+    private ImportRun startRun(String source) {
         ImportRun run = new ImportRun();
-        run.setSource(SOURCE);
+        run.setSource(source);
         run.setStartedAt(LocalDateTime.now());
         run.setCreatedAt(LocalDateTime.now());
         run.setStatus("RUNNING");
