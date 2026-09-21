@@ -32,12 +32,16 @@ public interface CountryRepository extends JpaRepository<Country, Long> {
     Double findAreaSquareKm(Long id);
 
     @Query("SELECT new io.github.selenajiro.europolitik.country.CountryResponse(" +
-            "c.id, c.isoCode, c.name, c.euMember, c.schengenMember, c.eurozoneMember, c.natoMember, c.createdAt, c.updatedAt) " +
+            "c.id, c.isoCode, c.name, c.euMember, c.schengenMember, c.eurozoneMember, c.natoMember, c.createdAt, c.updatedAt, " +
+            "c.currentRulingParty, c.currentPoliticalLeaning, c.currentPoliticalLeaningLabel, " +
+            "c.currentParliamentLeaning, c.currentParliamentLeaningLabel) " +
             "FROM Country c")
     List<CountryResponse> findAllProjected();
 
     @Query("SELECT new io.github.selenajiro.europolitik.country.CountryResponse(" +
-            "c.id, c.isoCode, c.name, c.euMember, c.schengenMember, c.eurozoneMember, c.natoMember, c.createdAt, c.updatedAt) " +
+            "c.id, c.isoCode, c.name, c.euMember, c.schengenMember, c.eurozoneMember, c.natoMember, c.createdAt, c.updatedAt, " +
+            "c.currentRulingParty, c.currentPoliticalLeaning, c.currentPoliticalLeaningLabel, " +
+            "c.currentParliamentLeaning, c.currentParliamentLeaningLabel) " +
             "FROM Country c WHERE c.id = :id")
     Optional<CountryResponse> findByIdProjected(Long id);
 }

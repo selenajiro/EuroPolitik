@@ -1,5 +1,6 @@
 package io.github.selenajiro.europolitik.country;
 
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
 public record CountryResponse(
@@ -11,7 +12,12 @@ public record CountryResponse(
         boolean eurozoneMember,
         boolean natoMember,
         LocalDateTime createdAt,
-        LocalDateTime updatedAt
+        LocalDateTime updatedAt,
+        String currentRulingParty,
+        BigDecimal currentPoliticalLeaning,
+        String currentPoliticalLeaningLabel,
+        BigDecimal currentParliamentLeaning,
+        String currentParliamentLeaningLabel
 ) {
     public static CountryResponse from(Country country) {
         return new CountryResponse(
@@ -23,7 +29,12 @@ public record CountryResponse(
                 country.isEurozoneMember(),
                 country.isNatoMember(),
                 country.getCreatedAt(),
-                country.getUpdatedAt()
+                country.getUpdatedAt(),
+                country.getCurrentRulingParty(),
+                country.getCurrentPoliticalLeaning(),
+                country.getCurrentPoliticalLeaningLabel(),
+                country.getCurrentParliamentLeaning(),
+                country.getCurrentParliamentLeaningLabel()
         );
     }
 }

@@ -67,6 +67,14 @@ public class Country {
 
     private LocalDateTime politicalLeaningComputedAt;
 
+    @Column(precision = 3, scale = 1)
+    private BigDecimal currentParliamentLeaning;
+
+    @Column(length = 20)
+    private String currentParliamentLeaningLabel;
+
+    private LocalDateTime parliamentLeaningComputedAt;
+
     @Column(nullable = false)
     private LocalDateTime createdAt;
 
