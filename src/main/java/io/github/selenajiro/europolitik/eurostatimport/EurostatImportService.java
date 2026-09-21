@@ -12,15 +12,19 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.client.ResourceAccessException;
 
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
+import java.util.function.Supplier;
 
 @Service
 public class EurostatImportService {
 
     private static final Logger log = LoggerFactory.getLogger(EurostatImportService.class);
+    private static final int MAX_RETRIES = 3;
+    private static final long BASE_BACKOFF_MS = 5000;
 
     private final EurostatClient eurostatClient;
     private final CountryStatisticRepository countryStatisticRepository;
@@ -46,7 +50,7 @@ public class EurostatImportService {
         int skipped = 0;
 
         try {
-            JsonStatDto raw = eurostatClient.fetch(spec);
+            JsonStatDto raw = withRetry(() -> eurostatClient.fetch(spec));
             List<Observation> observations = JsonStatDecoder.decode(raw);
             run.setRecordsRead(observations.size());
 
@@ -88,6 +92,31 @@ public class EurostatImportService {
         }
 
         return run;
+    }
+
+    private <T> T withRetry(Supplier<T> call) {
+        int attempt = 0;
+        while (true) {
+            try {
+                return call.get();
+            } catch (ResourceAccessException e) {
+                attempt++;
+                if (attempt > MAX_RETRIES) {
+                    throw e;
+                }
+                long backoff = BASE_BACKOFF_MS * attempt;
+                log.warn("Eurostat request failed ({}), retrying in {}ms (attempt {}/{})", e.getMessage(), backoff, attempt, MAX_RETRIES);
+                sleep(backoff);
+            }
+        }
+    }
+
+    private void sleep(long millis) {
+        try {
+            Thread.sleep(millis);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+        }
     }
 
     private ImportRun startRun(EurostatIndicatorSpec spec) {
