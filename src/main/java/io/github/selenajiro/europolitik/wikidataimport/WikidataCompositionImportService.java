@@ -98,7 +98,7 @@ public class WikidataCompositionImportService {
 
                 for (Map<String, SparqlValue> binding : bindings) {
                     read++;
-                    NormalizedPartyComposition normalized = WikidataCompositionMapper.normalize(binding);
+                    NormalizedPartyComposition normalized = WikidataCompositionMapper.normalize(binding, spec.countryIsoCode());
                     if (normalized == null) {
                         skipped++;
                         continue;

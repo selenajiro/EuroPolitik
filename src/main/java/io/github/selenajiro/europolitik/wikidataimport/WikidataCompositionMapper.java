@@ -23,27 +23,23 @@ public class WikidataCompositionMapper {
 
     public record NormalizedPartyComposition(String wikidataPartyId, String partyLabel, int seats) {}
 
-    public static NormalizedPartyComposition normalize(Map<String, SparqlValue> binding) {
+    /**
+     * countryIsoCode is used only to build a stable, per-country sentinel id
+     * for members with no wdt:P102 (member of political party) statement on
+     * Wikidata -- common for less-prominent members. They're surfaced as an
+     * explicit "Not recorded on Wikidata" bucket (renders as the same no-data
+     * gray used elsewhere) rather than silently dropped, which previously
+     * undercounted legislatures massively.
+     */
+    public static NormalizedPartyComposition normalize(Map<String, SparqlValue> binding, String countryIsoCode) {
         if (binding == null) {
             return null;
         }
 
-        SparqlValue partyValue = binding.get("party");
-        SparqlValue labelValue = binding.get("partyLabel");
         SparqlValue countValue = binding.get("count");
-
-        if (partyValue == null || isBlank(partyValue.value())
-                || labelValue == null || isBlank(labelValue.value())
-                || countValue == null || isBlank(countValue.value())) {
+        if (countValue == null || isBlank(countValue.value())) {
             return null;
         }
-
-        String uri = partyValue.value();
-        String qid = uri.substring(uri.lastIndexOf('/') + 1);
-        if (isBlank(qid)) {
-            return null;
-        }
-
         int seats;
         try {
             seats = Integer.parseInt(countValue.value().trim());
@@ -52,6 +48,19 @@ public class WikidataCompositionMapper {
         }
         if (seats <= 0) {
             return null;
+        }
+
+        SparqlValue partyValue = binding.get("party");
+        SparqlValue labelValue = binding.get("partyLabel");
+
+        if (partyValue == null || isBlank(partyValue.value()) || labelValue == null || isBlank(labelValue.value())) {
+            return new NormalizedPartyComposition("UNKNOWN-" + countryIsoCode, "Not recorded on Wikidata", seats);
+        }
+
+        String uri = partyValue.value();
+        String qid = uri.substring(uri.lastIndexOf('/') + 1);
+        if (isBlank(qid)) {
+            return new NormalizedPartyComposition("UNKNOWN-" + countryIsoCode, "Not recorded on Wikidata", seats);
         }
 
         return new NormalizedPartyComposition(qid, labelValue.value().trim(), seats);
@@ -157,7 +166,7 @@ public class WikidataCompositionMapper {
         }
 
         LocalDateTime now = LocalDateTime.now();
-        election.setImportedAt(now); // always refresh -- this field means "last checked"
+        election.setImportedAt(now);
         if (election.getCreatedAt() == null) {
             election.setCreatedAt(now);
         }

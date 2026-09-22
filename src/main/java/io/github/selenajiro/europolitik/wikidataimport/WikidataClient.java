@@ -29,7 +29,7 @@ public class WikidataClient {
                   ?politician p:P39 ?membership .
                   ?membership ps:P39 wd:%s .
                   ?membership wikibase:rank wikibase:PreferredRank .
-                  ?politician wdt:P102 ?party .
+                  OPTIONAL { ?politician wdt:P102 ?party }
                   SERVICE wikibase:label { bd:serviceParam wikibase:language "en" }
                 }
                 GROUP BY ?party ?partyLabel
