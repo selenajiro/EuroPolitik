@@ -16,8 +16,10 @@
         }
         body { margin: 0; background: var(--ocean); color: var(--cream); font-family: 'IBM Plex Sans', sans-serif; min-height: 100vh; }
         .wrap { max-width: 860px; margin: 0 auto; padding: 90px 24px 80px; }
-        .title-row { display: flex; align-items: center; gap: 14px; margin: 10px 0 6px; }
+        .title-row { display: flex; align-items: center; justify-content: space-between; gap: 14px; margin: 10px 0 6px; }
+        .title-left { display: flex; align-items: center; gap: 14px; }
         h1 { font-family: 'Source Serif 4', serif; font-size: 36px; margin: 0; }
+        .country-flag { height: 52px; width: auto; border-radius: 3px; box-shadow: 0 2px 10px rgba(0,0,0,0.35); flex-shrink: 0; }
         .meta-line { font-size: 13px; opacity: 0.6; margin-bottom: 20px; }
         .badges { display: flex; gap: 8px; margin-bottom: 32px; }
         .badge { font-size: 12px; padding: 4px 10px; border-radius: 3px; background: var(--ocean-deep); }
@@ -25,13 +27,29 @@
         .badge.no { color: #6b7378; }
         section { margin-bottom: 36px; }
         section h2 { font-family: 'Source Serif 4', serif; font-size: 20px; border-bottom: 1px solid rgba(237,231,218,0.15); padding-bottom: 8px; }
+        section h3 { font-family: 'IBM Plex Sans', sans-serif; font-size: 14px; font-weight: 500; color: var(--land-eu); margin: 18px 0 8px; }
+        section h3:first-of-type { margin-top: 8px; }
         .row { display: flex; justify-content: space-between; padding: 8px 0; font-size: 14px; border-bottom: 1px solid rgba(237,231,218,0.06); }
         .row .muted { color: #9aa3a8; }
         .row .pending-tag { font-style: italic; opacity: 0.7; font-size: 12px; }
         .row a { color: var(--land-eu); text-decoration: none; }
         .flowing-list a { color: var(--land-eu); text-decoration: none; }
         .flowing-list span.plain { color: var(--cream); opacity: 0.8; }
-        .empty { color: #6b7378; font-size: 14px; font-style: italic; }
+        .empty { color: #6b7378; font-size: 14px; font-style: italic; padding: 6px 0; }
+        .folder-search { margin-bottom: 8px; }
+        .folder-search input {
+            width: 100%; box-sizing: border-box; background: var(--ocean-deep);
+            border: 1px solid rgba(237,231,218,0.15); color: var(--cream);
+            padding: 8px 12px; border-radius: 3px; font-size: 13px; font-family: 'IBM Plex Sans', sans-serif;
+        }
+        .folder-search input::placeholder { color: #7a838a; }
+        .see-more {
+            display: block; width: 100%; margin-top: 10px; padding: 8px;
+            background: transparent; border: 1px solid rgba(237,231,218,0.15);
+            color: var(--land-eu); border-radius: 3px; font-size: 13px;
+            font-family: 'IBM Plex Sans', sans-serif; cursor: pointer;
+        }
+        .see-more:hover { background: rgba(184,148,95,0.15); }
         .hemicycle { width: 100%; max-width: 440px; height: auto; display: block; }
         .hemicycle-legend { display: flex; flex-wrap: wrap; gap: 10px 16px; margin-top: 12px; font-size: 12px; }
         .hemicycle-legend-item { display: flex; align-items: center; gap: 6px; }
@@ -50,6 +68,8 @@
 
 <script>
     const id = document.getElementById('country-id-holder').dataset.countryId;
+    const FOLDER_INITIAL = 5;
+    const FOLDER_INCREMENT = 15;
 
     function row(label, value) {
         return `<div class="row"><span class="muted">${label}</span><span>${value}</span></div>`;
@@ -67,14 +87,67 @@
         return all.length ? all.join(', ') : '<span class="muted">No land border</span>';
     }
 
-    function renderClosestFlowing(closest) {
-        return closest.length
-            ? closest.map(c => `<a href="/countries/${c.id}">${c.name}</a>`).join(', ')
-            : '<span class="muted">None</span>';
+    /**
+     * Progressive-reveal "folder": shows FOLDER_INITIAL items, a "see more"
+     * button reveals FOLDER_INCREMENT more per click. Optional search box
+     * filters the already-loaded array client-side -- no server round-trip.
+     * The search <input> is created once and left alone on re-render so it
+     * never loses focus mid-keystroke; only the results div underneath it
+     * gets replaced.
+     */
+    function renderFolder(containerId, items, renderItemFn, options = {}) {
+        const { searchable = false, searchPlaceholder = 'Search...', searchKeys = ['name'] } = options;
+        const container = document.getElementById(containerId);
+        const resultsId = containerId + '-results';
+
+        let visibleCount = FOLDER_INITIAL;
+        let filtered = items;
+
+        container.innerHTML = `
+                ${searchable ? `<div class="folder-search"><input type="text" placeholder="${searchPlaceholder}" id="${containerId}-search"></div>` : ''}
+                <div id="${resultsId}"></div>
+            `;
+
+        function renderResults() {
+            const resultsEl = document.getElementById(resultsId);
+            const visible = filtered.slice(0, visibleCount);
+            const remaining = filtered.length - visible.length;
+
+            if (visible.length === 0) {
+                resultsEl.innerHTML = `<div class="empty">${items.length === 0 ? 'None recorded yet' : 'No matches'}</div>`;
+                return;
+            }
+
+            let html = visible.map(renderItemFn).join('');
+            if (remaining > 0) {
+                html += `<button type="button" class="see-more">See more (${remaining} more)</button>`;
+            }
+            resultsEl.innerHTML = html;
+
+            const btn = resultsEl.querySelector('.see-more');
+            if (btn) {
+                btn.addEventListener('click', () => {
+                    visibleCount += FOLDER_INCREMENT;
+                    renderResults();
+                });
+            }
+        }
+
+        if (searchable) {
+            const input = document.getElementById(`${containerId}-search`);
+            input.addEventListener('input', () => {
+                const q = input.value.toLowerCase().trim();
+                filtered = q === '' ? items : items.filter(item =>
+                    searchKeys.some(key => (item[key] || '').toLowerCase().includes(q)));
+                visibleCount = FOLDER_INITIAL;
+                renderResults();
+            });
+        }
+
+        renderResults();
     }
 
-    // Same 7-stop red-to-blue scale used on the map's leaning layer, applied
-    // continuously so each party's own left-right score gets its own shade.
+    // Same 7-stop red-to-blue scale used on the map's leaning layer.
     function colorForLeftRight(value) {
         if (value == null) return '#9c9186';
         const stops = ['#8b2635', '#b23a4e', '#d68a95', '#e0d5bd', '#8aa8c4', '#4a7ba6', '#234b6e'];
@@ -100,7 +173,6 @@
         return { x: cx + r * Math.cos(rad), y: cy - r * Math.sin(rad) };
     }
 
-    // Half-donut wedge from startAngle to endAngle (180=left, 90=top, 0=right).
     function wedgePath(cx, cy, rOuter, rInner, startAngle, endAngle) {
         const p1 = polarPoint(cx, cy, rOuter, startAngle);
         const p2 = polarPoint(cx, cy, rOuter, endAngle);
@@ -114,7 +186,6 @@
         const total = composition.reduce((sum, p) => sum + (p.seats || 0), 0);
         if (total === 0) return '<div class="empty">No seat data</div>';
 
-        // Left-to-right by ideology, matching real hemicycle seating convention.
         const sorted = [...composition].sort((a, b) => {
             if (a.leftRight == null && b.leftRight == null) return 0;
             if (a.leftRight == null) return 1;
@@ -153,10 +224,9 @@
             return res.json();
         }),
         fetch(`/api/countries/${id}/neighbors`).then(res => res.json()),
-        fetch(`/api/countries/${id}/nearby`).then(res => res.json()),
         fetchFavoriteIds()
     ])
-        .then(([profile, neighbors, nearby, favoriteIds]) => {
+        .then(([profile, neighbors, favoriteIds]) => {
             const c = profile.country;
             document.getElementById('loading').remove();
 
@@ -165,14 +235,31 @@
                 : 'Unknown';
 
             const pendingElections = profile.politicalEvents.filter(e => e.eventType === 'ELECTION_HELD');
-            const hasElectionData = profile.elections.length || pendingElections.length;
             const hasStatus = c.currentRulingParty || c.currentPoliticalLeaningLabel || c.currentParliamentLeaningLabel;
+
+            const electionItems = [
+                ...profile.elections.map(e => ({ date: e.electionDate, html: row(e.name, e.electionDate) })),
+                ...pendingElections.map(e => ({ date: e.eventDate, html: pendingElectionRow(e) }))
+            ].sort((a, b) => (b.date || '').localeCompare(a.date || ''));
+
+            const sortedEvents = [...profile.politicalEvents]
+                .sort((a, b) => (b.eventDate || '').localeCompare(a.eventDate || ''));
+
+            const statsByIndicator = { GDP_PER_CAPITA: [], UNEMPLOYMENT_RATE: [], POPULATION: [] };
+            profile.statistics.forEach(s => {
+                if (statsByIndicator[s.indicator]) statsByIndicator[s.indicator].push(s);
+            });
+            Object.values(statsByIndicator).forEach(list => list.sort((a, b) => b.year - a.year));
+            const statRow = s => row(String(s.year), `${s.value ?? ''} ${s.unit || ''}`);
 
             const wrap = document.getElementById('content');
             wrap.insertAdjacentHTML('beforeend', `
                     <div class="title-row">
-                        <h1>${c.name}</h1>
-                        ${starButton(c.id, favoriteIds.has(c.id))}
+                        <div class="title-left">
+                            <h1>${c.name}</h1>
+                            ${starButton(c.id, favoriteIds.has(c.id))}
+                        </div>
+                        ${c.isoCode ? `<img class="country-flag" src="https://flagcdn.com/h120/${c.isoCode.toLowerCase()}.png" alt="${c.name} flag">` : ''}
                     </div>
                     <div class="meta-line">Area: ${areaText}</div>
                     <div class="badges">
@@ -204,39 +291,33 @@
                     </section>
 
                     <section>
-                        <h2>Closest countries</h2>
-                        <div class="flowing-list">${renderClosestFlowing(nearby)}</div>
-                    </section>
-
-                    <section>
                         <h2>Political parties</h2>
-                        ${profile.politicalParties.length ? profile.politicalParties.map(p =>
-                row(p.name, p.politicalGroup || '')).join('') : '<div class="empty">None recorded yet</div>'}
+                        <div id="parties-folder"></div>
                     </section>
 
                     <section>
                         <h2>Elections</h2>
-                        ${profile.elections.map(e => row(e.name, e.electionDate)).join('')}
-                        ${pendingElections.map(pendingElectionRow).join('')}
-                        ${hasElectionData ? '' : '<div class="empty">None recorded yet</div>'}
+                        <div id="elections-folder"></div>
                     </section>
 
                     <section>
                         <h2>MEPs</h2>
-                        ${profile.meps.length ? profile.meps.map(m =>
-                row(m.fullName, m.politicalGroup || '')).join('') : '<div class="empty">None recorded yet</div>'}
+                        <div id="meps-folder"></div>
                     </section>
 
                     <section>
                         <h2>Political events</h2>
-                        ${profile.politicalEvents.length ? profile.politicalEvents.map(e =>
-                row(e.title, e.eventDate)).join('') : '<div class="empty">None recorded yet</div>'}
+                        <div id="events-folder"></div>
                     </section>
 
                     <section>
                         <h2>Statistics</h2>
-                        ${profile.statistics.length ? profile.statistics.map(s =>
-                row(`${s.indicator} (${s.year})`, `${s.value ?? ''} ${s.unit || ''}`)).join('') : '<div class="empty">None recorded yet</div>'}
+                        <h3>GDP per capita</h3>
+                        <div id="stats-gdp-folder"></div>
+                        <h3>Unemployment rate</h3>
+                        <div id="stats-unemployment-folder"></div>
+                        <h3>Population</h3>
+                        <div id="stats-population-folder"></div>
                     </section>
 
                     <section>
@@ -245,6 +326,20 @@
                 row(l.language, l.official ? 'Official' : (l.minority ? 'Minority' : ''))).join('') : '<div class="empty">None recorded yet</div>'}
                     </section>
                 `);
+
+            renderFolder('parties-folder', profile.politicalParties, p => row(p.name, p.politicalGroup || ''),
+                { searchable: true, searchPlaceholder: 'Search parties...', searchKeys: ['name'] });
+
+            renderFolder('elections-folder', electionItems, item => item.html);
+
+            renderFolder('meps-folder', profile.meps, m => row(m.fullName, m.politicalGroup || ''),
+                { searchable: true, searchPlaceholder: 'Search MEPs...', searchKeys: ['fullName'] });
+
+            renderFolder('events-folder', sortedEvents, e => row(e.title, e.eventDate));
+
+            renderFolder('stats-gdp-folder', statsByIndicator.GDP_PER_CAPITA, statRow);
+            renderFolder('stats-unemployment-folder', statsByIndicator.UNEMPLOYMENT_RATE, statRow);
+            renderFolder('stats-population-folder', statsByIndicator.POPULATION, statRow);
         })
         .catch(err => {
             document.getElementById('loading').textContent = `Couldn't load: ${err.message}`;
