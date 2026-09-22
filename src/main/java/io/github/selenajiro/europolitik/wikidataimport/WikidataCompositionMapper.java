@@ -6,6 +6,7 @@ import io.github.selenajiro.europolitik.electionresult.ElectionResult;
 import io.github.selenajiro.europolitik.politicalparty.PoliticalParty;
 import io.github.selenajiro.europolitik.wikidataimport.SparqlResultsDto.SparqlValue;
 
+import java.text.Normalizer;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.Map;
@@ -56,8 +57,50 @@ public class WikidataCompositionMapper {
         return new NormalizedPartyComposition(qid, labelValue.value().trim(), seats);
     }
 
+    public static boolean namesMatch(String wikidataLabel, String existingName, String countryName) {
+        if (wikidataLabel == null || existingName == null) {
+            return false;
+        }
+        String a = normalizeForMatch(wikidataLabel, countryName);
+        String b = normalizeForMatch(existingName, countryName);
+        if (a.equalsIgnoreCase(b)) {
+            return true;
+        }
+        String looseA = stripTrailingWord(a, "Party", "Parties");
+        String looseB = stripTrailingWord(b, "Party", "Parties");
+        return !looseA.isEmpty() && looseA.equalsIgnoreCase(looseB);
+    }
+
+    private static String normalizeForMatch(String text, String countryName) {
+        String result = text.trim();
+        if (countryName != null) {
+            for (String joiner : new String[]{"of", "for"}) {
+                String suffix = " " + joiner + " " + countryName;
+                if (result.length() > suffix.length()
+                        && result.regionMatches(true, result.length() - suffix.length(), suffix, 0, suffix.length())) {
+                    result = result.substring(0, result.length() - suffix.length()).trim();
+                    break;
+                }
+            }
+        }
+        return Normalizer.normalize(result, Normalizer.Form.NFD).replaceAll("\\p{M}", "");
+    }
+
+    private static String stripTrailingWord(String text, String... words) {
+        for (String word : words) {
+            String suffix = " " + word;
+            if (text.length() > suffix.length()
+                    && text.regionMatches(true, text.length() - suffix.length(), suffix, 0, suffix.length())) {
+                return text.substring(0, text.length() - suffix.length()).trim();
+            }
+        }
+        return text;
+    }
+
     public static boolean applyToParty(PoliticalParty party, NormalizedPartyComposition normalized, Country country) {
+        boolean isNew = party.getId() == null;
         boolean changed = false;
+
         if (!normalized.wikidataPartyId().equals(party.getWikidataPartyId())) {
             party.setWikidataPartyId(normalized.wikidataPartyId());
             changed = true;
@@ -66,7 +109,7 @@ public class WikidataCompositionMapper {
             party.setCountry(country);
             changed = true;
         }
-        if (!normalized.partyLabel().equals(party.getName())) {
+        if (isNew && !normalized.partyLabel().equals(party.getName())) {
             party.setName(normalized.partyLabel());
             changed = true;
         }

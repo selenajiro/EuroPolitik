@@ -140,6 +140,7 @@ public class WikidataCompositionImportService {
 
     private RowOutcome processRow(NormalizedPartyComposition normalized, Country country) {
         PoliticalParty party = politicalPartyRepository.findByWikidataPartyId(normalized.wikidataPartyId())
+                .or(() -> findExistingPartyByName(normalized.partyLabel(), country))
                 .orElseGet(PoliticalParty::new);
         if (WikidataCompositionMapper.applyToParty(party, normalized, country)) {
             party = politicalPartyRepository.save(party);
@@ -164,6 +165,13 @@ public class WikidataCompositionImportService {
             return RowOutcome.UPDATED;
         }
         return RowOutcome.UNCHANGED;
+    }
+
+    private Optional<PoliticalParty> findExistingPartyByName(String label, Country country) {
+        return politicalPartyRepository.findAllByCountryId(country.getId()).stream()
+                .filter(p -> p.getWikidataPartyId() == null)
+                .filter(p -> WikidataCompositionMapper.namesMatch(label, p.getName(), country.getName()))
+                .findFirst();
     }
 
     private ImportRun startRun() {
