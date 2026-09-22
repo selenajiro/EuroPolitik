@@ -320,10 +320,13 @@
                         <div id="stats-population-folder"></div>
                     </section>
 
-                    <section>
+                                        <section>
                         <h2>Languages</h2>
-                        ${profile.languages.length ? profile.languages.map(l =>
-                row(l.language, l.official ? 'Official' : (l.minority ? 'Minority' : ''))).join('') : '<div class="empty">None recorded yet</div>'}
+                        ${profile.languages.length ? profile.languages.map(l => {
+                const status = l.official ? 'Official' : (l.minority ? 'Minority' : '');
+                const family = l.languageFamily ? ` &middot; ${l.languageFamily}` : '';
+                return row(l.language, `${status}${family}`);
+            }).join('') : '<div class="empty">None recorded yet</div>'}
                     </section>
                 `);
 
