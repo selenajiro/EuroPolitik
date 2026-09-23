@@ -25,20 +25,7 @@ import java.util.function.Supplier;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-/**
- * Discovers recent/current NATIONAL-level elections per country via
- * Wikipedia's "Category:{year} elections in {country}" categories.
- * <p>
- * These categories include far more than national elections -- regional
- * legislature races, city/municipal elections, party leadership
- * primaries, by-elections, and even MediaWiki Category:/Template: pages
- * that aren't real articles at all. A title is only accepted if it
- * contains the country's own demonym (so region-named sub-national
- * elections, which usually don't mention the country at all, drop out)
- * AND doesn't match a known list of sub-national/internal-party
- * patterns (so country-wide local/municipal elections, which DO
- * mention the country, still get excluded).
- */
+
 @Service
 public class ElectionDiscoveryService {
 
@@ -52,41 +39,21 @@ public class ElectionDiscoveryService {
             "Czechia", "Czech Republic"
     );
 
-    private static final Map<String, String> DEMONYMS = Map.ofEntries(
-            Map.entry("Albania", "Albanian"), Map.entry("Andorra", "Andorran"),
-            Map.entry("Austria", "Austrian"), Map.entry("Belarus", "Belarusian"),
-            Map.entry("Belgium", "Belgian"), Map.entry("Bosnia and Herzegovina", "Bosnian"),
-            Map.entry("Bulgaria", "Bulgarian"), Map.entry("Croatia", "Croatian"),
-            Map.entry("Cyprus", "Cypriot"), Map.entry("Czechia", "Czech"),
-            Map.entry("Denmark", "Danish"), Map.entry("Estonia", "Estonian"),
-            Map.entry("Finland", "Finnish"), Map.entry("France", "French"),
-            Map.entry("Germany", "German"), Map.entry("Greece", "Greek"),
-            Map.entry("Hungary", "Hungarian"), Map.entry("Iceland", "Icelandic"),
-            Map.entry("Ireland", "Irish"), Map.entry("Italy", "Italian"),
-            Map.entry("Kosovo", "Kosovar"), Map.entry("Latvia", "Latvian"),
-            Map.entry("Liechtenstein", "Liechtenstein"), Map.entry("Lithuania", "Lithuanian"),
-            Map.entry("Luxembourg", "Luxembourg"), Map.entry("Malta", "Maltese"),
-            Map.entry("Moldova", "Moldovan"), Map.entry("Monaco", "Monaco"),
-            Map.entry("Montenegro", "Montenegrin"), Map.entry("Netherlands", "Dutch"),
-            Map.entry("North Macedonia", "Macedonian"), Map.entry("Norway", "Norwegian"),
-            Map.entry("Poland", "Polish"), Map.entry("Portugal", "Portuguese"),
-            Map.entry("Romania", "Romanian"), Map.entry("Russia", "Russian"),
-            Map.entry("San Marino", "Sammarinese"), Map.entry("Serbia", "Serbian"),
-            Map.entry("Slovakia", "Slovak"), Map.entry("Slovenia", "Slovenian"),
-            Map.entry("Spain", "Spanish"), Map.entry("Sweden", "Swedish"),
-            Map.entry("Switzerland", "Swiss"), Map.entry("Turkey", "Turkish"),
-            Map.entry("Ukraine", "Ukrainian"), Map.entry("United Kingdom", "British"),
-            Map.entry("Vatican City", "Vatican")
-    );
-
-    private static final List<String> HARD_EXCLUDE_PATTERNS = List.of(
-            "local election", "municipal", "council election", "district election",
-            "state election", "regional election", "gubernatorial", "senate election",
-            "by-election", "by election", "consular", "head election"
-    );
-
     private static final List<String> LEADERSHIP_PATTERNS = List.of(
             "leadership election", "leadership contest", "party primary"
+    );
+
+    private static final List<String> BY_ELECTION_PATTERNS = List.of(
+            "by-election", "by election"
+    );
+
+    private static final List<String> LOCAL_PATTERNS = List.of(
+            "local election", "municipal", "council election", "district election"
+    );
+
+    private static final List<String> REGIONAL_PATTERNS = List.of(
+            "state election", "regional election", "gubernatorial", "senate election",
+            "consular", "head election"
     );
 
     private static final Pattern REFERENDUM_PATTERN = Pattern.compile("referendum", Pattern.CASE_INSENSITIVE);
@@ -95,7 +62,10 @@ public class ElectionDiscoveryService {
             "\\b(\\d{1,2}\\s+(?:January|February|March|April|May|June|July|August|September|October|November|December)\\s+\\d{4})\\b");
     private static final DateTimeFormatter DATE_FORMAT = DateTimeFormatter.ofPattern("d MMMM yyyy", Locale.ENGLISH);
 
-    private enum EventClassification { NATIONAL_ELECTION, LEADERSHIP_ELECTION, REFERENDUM, EXCLUDED }
+    private enum EventClassification {
+        NATIONAL_ELECTION, LEADERSHIP_ELECTION, REFERENDUM,
+        REGIONAL_ELECTION, LOCAL_ELECTION, BY_ELECTION, EXCLUDED
+    }
 
     private final WikipediaClient client;
     private final CountryRepository countryRepository;
@@ -127,7 +97,6 @@ public class ElectionDiscoveryService {
 
             for (Country country : countries) {
                 String categoryCountryName = CATEGORY_NAME_ALIASES.getOrDefault(country.getName(), country.getName());
-                String demonym = DEMONYMS.get(country.getName());
 
                 for (int year : years) {
                     List<String> titles;
@@ -142,7 +111,7 @@ public class ElectionDiscoveryService {
 
                     for (String title : titles) {
                         read++;
-                        EventClassification classification = classify(title, country.getName(), demonym);
+                        EventClassification classification = classify(title);
                         if (classification == EventClassification.EXCLUDED) {
                             skipped++;
                             continue;
@@ -157,6 +126,9 @@ public class ElectionDiscoveryService {
                             case NATIONAL_ELECTION -> "ELECTION_HELD";
                             case LEADERSHIP_ELECTION -> "PARTY_LEADERSHIP_ELECTION";
                             case REFERENDUM -> "REFERENDUM_HELD";
+                            case REGIONAL_ELECTION -> "REGIONAL_ELECTION_HELD";
+                            case LOCAL_ELECTION -> "LOCAL_ELECTION_HELD";
+                            case BY_ELECTION -> "BY_ELECTION_HELD";
                             case EXCLUDED -> throw new IllegalStateException("unreachable");
                         };
 
@@ -179,30 +151,33 @@ public class ElectionDiscoveryService {
         return run;
     }
 
-    private EventClassification classify(String title, String countryName, String demonym) {
+    private EventClassification classify(String title) {
         if (title.startsWith("Category:") || title.startsWith("Template:") || title.startsWith("Talk:")) {
             return EventClassification.EXCLUDED;
         }
 
-        boolean mentionsCountry = (demonym != null && title.contains(demonym)) || title.contains(countryName);
-        if (!mentionsCountry) {
-            return EventClassification.EXCLUDED;
-        }
-
         String lower = title.toLowerCase(Locale.ENGLISH);
-
-        for (String pattern : HARD_EXCLUDE_PATTERNS) {
-            if (lower.contains(pattern)) {
-                return EventClassification.EXCLUDED;
-            }
-        }
 
         for (String pattern : LEADERSHIP_PATTERNS) {
             if (lower.contains(pattern)) {
                 return EventClassification.LEADERSHIP_ELECTION;
             }
         }
-
+        for (String pattern : BY_ELECTION_PATTERNS) {
+            if (lower.contains(pattern)) {
+                return EventClassification.BY_ELECTION;
+            }
+        }
+        for (String pattern : LOCAL_PATTERNS) {
+            if (lower.contains(pattern)) {
+                return EventClassification.LOCAL_ELECTION;
+            }
+        }
+        for (String pattern : REGIONAL_PATTERNS) {
+            if (lower.contains(pattern)) {
+                return EventClassification.REGIONAL_ELECTION;
+            }
+        }
         if (REFERENDUM_PATTERN.matcher(title).find()) {
             return EventClassification.REFERENDUM;
         }
