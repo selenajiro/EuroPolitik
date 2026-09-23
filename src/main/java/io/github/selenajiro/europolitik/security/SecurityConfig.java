@@ -37,7 +37,7 @@ public class SecurityConfig {
                         .requestMatchers("/api/countries/**", "/api/political-parties/**",
                                 "/api/elections/**", "/api/election-results/**", "/api/meps/**",
                                 "/api/political-events/**", "/api/country-statistics/**",
-                                "/api/country-languages/**", "/api/import-runs/**").permitAll()
+                                "/api/country-languages/**", "/api/import-runs/**", "/api/timeline").permitAll()
                         .anyRequest().authenticated())
                 .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
 

@@ -26,7 +26,8 @@ public class TimelineService {
         this.electionRepository = electionRepository;
     }
 
-    public TimelineResponse buildPage(int offset, int limit, String search, String type, Long countryId) {
+    public TimelineResponse buildPage(int offset, int limit, String search, String type, Long countryId,
+                                      LocalDate dateFrom, LocalDate dateTo) {
         List<ScoredItem> all = new ArrayList<>();
 
         List<PoliticalEvent> events = countryId != null
@@ -53,6 +54,8 @@ public class TimelineService {
 
         List<ScoredItem> filtered = all.stream()
                 .filter(item -> type == null || type.isBlank() || type.equalsIgnoreCase(item.rawType()))
+                .filter(item -> dateFrom == null || !item.date().isBefore(dateFrom))
+                .filter(item -> dateTo == null || !item.date().isAfter(dateTo))
                 .filter(item -> searchLower == null || searchLower.isEmpty()
                         || item.item().title().toLowerCase(Locale.ENGLISH).contains(searchLower))
                 .sorted(Comparator.comparing(ScoredItem::date).reversed())

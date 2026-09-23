@@ -28,17 +28,20 @@
             border-left: 1px solid rgba(237,231,218,0.08);
         }
         .sidebar h2 { font-family: 'Source Serif 4', serif; font-size: 18px; margin: 0 0 16px; }
-        .sidebar .hint { font-size: 12px; opacity: 0.7; margin-bottom: 14px; }
         .sidebar .feed-item { display: flex; gap: 12px; padding: 14px 0; border-bottom: 1px solid rgba(237,231,218,0.08); }
         .sidebar .feed-item .flag { width: 34px; height: 23px; object-fit: cover; border-radius: 2px; flex-shrink: 0; margin-top: 2px; background: rgba(237,231,218,0.08); }
         .sidebar .feed-item .body { flex: 1; min-width: 0; }
-        .sidebar .feed-item .meta { font-size: 11px; opacity: 0.5; margin-bottom: 4px; }
+        .sidebar .feed-item .meta { display: flex; align-items: center; gap: 6px; font-size: 11px; opacity: 0.6; margin-bottom: 4px; flex-wrap: wrap; }
+        .sidebar .feed-item .badge { background: rgba(184,148,95,0.18); color: var(--land-eu); padding: 1px 7px; border-radius: 8px; font-size: 10px; }
         .sidebar .feed-item .title { font-size: 14px; font-weight: 500; line-height: 1.35; margin-bottom: 4px; }
         .sidebar .feed-item .snippet { font-size: 12px; opacity: 0.75; line-height: 1.45; margin-bottom: 6px; }
         .sidebar .feed-item .links { display: flex; gap: 14px; }
         .sidebar .feed-item .links a { font-size: 12px; color: var(--land-eu); text-decoration: none; }
-        .sidebar .login-hint a { color: var(--land-eu); }
-        .sidebar .empty { font-size: 13px; opacity: 0.6; font-style: italic; }
+        .sidebar .feed-empty { padding: 20px 0; }
+        .sidebar .feed-empty-title { font-family: 'Source Serif 4', serif; font-size: 16px; margin: 0 0 8px; }
+        .sidebar .feed-empty-message { font-size: 13px; opacity: 0.7; line-height: 1.5; margin: 0; }
+        .sidebar .loading-more { text-align: center; font-size: 12px; opacity: 0.6; padding: 14px 0; }
+        .sidebar .sentinel { height: 1px; }
 
         .leaflet-top.leaflet-left { margin-top: 66px; }
         .leaflet-control-zoom { border: none !important; box-shadow: 0 4px 20px rgba(0,0,0,0.35) !important; }
@@ -112,6 +115,8 @@
     <aside class="sidebar">
         <h2>Your feed</h2>
         <div id="feed-content">Loading...</div>
+        <div class="sentinel" id="feed-sentinel"></div>
+        <div class="loading-more" id="feed-loading-more" style="display: none;">Loading more...</div>
     </aside>
 </div>
 
@@ -167,9 +172,6 @@
     let currentLayer = 'eu';
     let continuousStats = {};
 
-    // Red = left, blue = right -- the standard European convention
-    // (matches the EU Parliament's own hemicycle and most European
-    // data journalism), graduating toward the extremes.
     const LEANING_COLORS = {
         'Far Left': '#8b2635',
         'Left': '#b23a4e',
@@ -400,54 +402,107 @@
             });
     });
 
-    function loadSidebarFeed() {
-        const container = document.getElementById('feed-content');
+    // ---- Feed: infinite scroll inside the sidebar itself ----
 
-        if (!getToken()) {
-            container.innerHTML = `
-                    <p class="hint">Log in to see recent activity for the countries you follow.</p>
-                    <p class="login-hint"><a href="/login">Log in &rarr;</a></p>
-                `;
-            return;
-        }
+    const EVENT_TYPE_LABELS = {
+        'ELECTION': 'Election result',
+        'ELECTION_HELD': 'Election',
+        'PARTY_LEADERSHIP_ELECTION': 'Leadership election',
+        'REFERENDUM_HELD': 'Referendum',
+        'REGIONAL_ELECTION_HELD': 'Regional election',
+        'LOCAL_ELECTION_HELD': 'Local election',
+        'BY_ELECTION_HELD': 'By-election',
+        'GOVERNMENT_CHANGE': 'Government change'
+    };
 
-        authFetch('/api/feed')
+    let feedOffset = 0;
+    const FEED_LIMIT = 10;
+    let feedLoading = false;
+    let feedFinished = false;
+    let feedItemCount = 0;
+
+    function renderFeedPost(item) {
+        const label = EVENT_TYPE_LABELS[item.type] || item.type;
+        return `
+                <div class="feed-item">
+                    ${item.countryIsoCode ? `<img class="flag" src="https://flagcdn.com/w80/${item.countryIsoCode.toLowerCase()}.png" alt="">` : ''}
+                    <div class="body">
+                        <div class="meta">
+                            <span class="badge">${label}</span>
+                            <span>${item.date}${item.countryName ? ` &middot; ${item.countryName}` : ''}</span>
+                        </div>
+                        <div class="title">${item.title}</div>
+                        ${item.description ? `<div class="snippet">${item.description}</div>` : ''}
+                        <div class="links">
+                            ${item.countryId ? `<a href="/countries/${item.countryId}">Country profile &rarr;</a>` : ''}
+                            ${item.sourceUrl ? `<a href="${item.sourceUrl}" target="_blank" rel="noopener">Read more &#8599;</a>` : ''}
+                        </div>
+                    </div>
+                </div>
+            `;
+    }
+
+    function showFeedEmptyState(title, message) {
+        document.getElementById('feed-content').innerHTML = `
+                <div class="feed-empty">
+                    <p class="feed-empty-title">${title}</p>
+                    <p class="feed-empty-message">${message}</p>
+                </div>
+            `;
+    }
+
+    function loadMoreFeed() {
+        if (feedLoading || feedFinished) return;
+        feedLoading = true;
+        if (feedItemCount > 0) document.getElementById('feed-loading-more').style.display = 'block';
+
+        authFetch(`/api/feed/full?offset=${feedOffset}&limit=${FEED_LIMIT}`)
             .then(res => {
                 if (!res.ok) throw new Error(`Server responded with status ${res.status}`);
                 return res.json();
             })
             .then(data => {
-                let html = '';
-                if (!data.personalized) {
-                    html += `<p class="hint">Recent across Europe &mdash; favorite countries to personalize this.</p>`;
+                document.getElementById('feed-loading-more').style.display = 'none';
+
+                if (feedItemCount === 0 && data.items.length === 0) {
+                    showFeedEmptyState("You're all caught up",
+                        'No new activity for your followed countries right now, or you haven\'t favorited any yet — click the star on a country to follow it.');
+                    feedFinished = true;
+                    return;
                 }
-                if (data.items.length === 0) {
-                    html += `<p class="empty">No recent activity to show.</p>`;
-                } else {
-                    html += data.items.map(item => `
-                        <div class="feed-item">
-                            ${item.countryIsoCode ? `<img class="flag" src="https://flagcdn.com/w80/${item.countryIsoCode.toLowerCase()}.png" alt="">` : ''}
-                            <div class="body">
-                                <div class="meta">${item.type === 'ELECTION' ? 'Election' : 'Event'} &middot; ${item.date}${item.countryName ? ` &middot; ${item.countryName}` : ''}</div>
-                                <div class="title">${item.title}</div>
-                                ${item.description ? `<div class="snippet">${item.description}</div>` : ''}
-                                <div class="links">
-                                    ${item.countryId ? `<a href="/countries/${item.countryId}">Country profile &rarr;</a>` : ''}
-                                    ${item.sourceUrl ? `<a href="${item.sourceUrl}" target="_blank" rel="noopener">Read more &#8599;</a>` : ''}
-                                </div>
-                            </div>
-                        </div>
-                    `).join('');
+
+                if (feedItemCount === 0) {
+                    document.getElementById('feed-content').innerHTML = '';
                 }
-                container.innerHTML = html;
+
+                data.items.forEach(item => {
+                    document.getElementById('feed-content').insertAdjacentHTML('beforeend', renderFeedPost(item));
+                    feedItemCount++;
+                });
+
+                feedOffset += data.items.length;
+                feedFinished = !data.hasMore;
+                feedLoading = false;
             })
             .catch(err => {
-                container.innerHTML = `<p class="empty">Couldn't load your feed: ${err.message}</p>`;
-                console.error('Feed fetch failed:', err);
+                feedLoading = false;
+                document.getElementById('feed-loading-more').style.display = 'none';
+                if (feedItemCount === 0) {
+                    showFeedEmptyState('Couldn\'t load', err.message);
+                }
             });
     }
 
-    loadSidebarFeed();
+    if (!getToken()) {
+        showFeedEmptyState('Log in to see your feed', 'Your feed shows new activity for the countries you follow once you\'re logged in.');
+    } else {
+        const feedObserver = new IntersectionObserver(entries => {
+            if (entries[0].isIntersecting) {
+                loadMoreFeed();
+            }
+        }, { root: document.querySelector('.sidebar') });
+        feedObserver.observe(document.getElementById('feed-sentinel'));
+    }
 </script>
 </body>
 </html>
