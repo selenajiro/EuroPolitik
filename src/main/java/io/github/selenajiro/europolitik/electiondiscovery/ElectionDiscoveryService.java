@@ -52,10 +52,6 @@ public class ElectionDiscoveryService {
             "Czechia", "Czech Republic"
     );
 
-    // Demonym used to confirm a title is actually about this country,
-    // not a region within it. Article titles for sub-national elections
-    // (e.g. "Baden-Württemberg state election") typically don't include
-    // the country name/demonym at all.
     private static final Map<String, String> DEMONYMS = Map.ofEntries(
             Map.entry("Albania", "Albanian"), Map.entry("Andorra", "Andorran"),
             Map.entry("Austria", "Austrian"), Map.entry("Belarus", "Belarusian"),
@@ -83,16 +79,23 @@ public class ElectionDiscoveryService {
             Map.entry("Vatican City", "Vatican")
     );
 
-    private static final List<String> NOISE_PATTERNS = List.of(
-            "local election", "municipal", "primary", "leadership election",
-            "by-election", "by election", "consular", "state election",
-            "gubernatorial", "head election", "regional election", "senate election",
-            "council election", "district election"
+    private static final List<String> HARD_EXCLUDE_PATTERNS = List.of(
+            "local election", "municipal", "council election", "district election",
+            "state election", "regional election", "gubernatorial", "senate election",
+            "by-election", "by election", "consular", "head election"
     );
+
+    private static final List<String> LEADERSHIP_PATTERNS = List.of(
+            "leadership election", "leadership contest", "party primary"
+    );
+
+    private static final Pattern REFERENDUM_PATTERN = Pattern.compile("referendum", Pattern.CASE_INSENSITIVE);
 
     private static final Pattern DATE_PATTERN = Pattern.compile(
             "\\b(\\d{1,2}\\s+(?:January|February|March|April|May|June|July|August|September|October|November|December)\\s+\\d{4})\\b");
     private static final DateTimeFormatter DATE_FORMAT = DateTimeFormatter.ofPattern("d MMMM yyyy", Locale.ENGLISH);
+
+    private enum EventClassification { NATIONAL_ELECTION, LEADERSHIP_ELECTION, REFERENDUM, EXCLUDED }
 
     private final WikipediaClient client;
     private final CountryRepository countryRepository;
@@ -139,7 +142,8 @@ public class ElectionDiscoveryService {
 
                     for (String title : titles) {
                         read++;
-                        if (!isNationalLevelElection(title, country.getName(), demonym)) {
+                        EventClassification classification = classify(title, country.getName(), demonym);
+                        if (classification == EventClassification.EXCLUDED) {
                             skipped++;
                             continue;
                         }
@@ -149,10 +153,17 @@ public class ElectionDiscoveryService {
                             continue;
                         }
 
-                        PoliticalEvent event = buildEvent(country, title, year);
+                        String eventType = switch (classification) {
+                            case NATIONAL_ELECTION -> "ELECTION_HELD";
+                            case LEADERSHIP_ELECTION -> "PARTY_LEADERSHIP_ELECTION";
+                            case REFERENDUM -> "REFERENDUM_HELD";
+                            case EXCLUDED -> throw new IllegalStateException("unreachable");
+                        };
+
+                        PoliticalEvent event = buildEvent(country, title, year, eventType);
                         politicalEventRepository.save(event);
                         inserted++;
-                        log.info("Discovered election for {}: {} ({})", country.getName(), title, event.getEventDate());
+                        log.info("Discovered {} for {}: {} ({})", eventType, country.getName(), title, event.getEventDate());
                     }
                 }
             }
@@ -168,31 +179,42 @@ public class ElectionDiscoveryService {
         return run;
     }
 
-    private boolean isNationalLevelElection(String title, String countryName, String demonym) {
+    private EventClassification classify(String title, String countryName, String demonym) {
         if (title.startsWith("Category:") || title.startsWith("Template:") || title.startsWith("Talk:")) {
-            return false;
+            return EventClassification.EXCLUDED;
         }
 
         boolean mentionsCountry = (demonym != null && title.contains(demonym)) || title.contains(countryName);
         if (!mentionsCountry) {
-            return false;
+            return EventClassification.EXCLUDED;
         }
 
         String lower = title.toLowerCase(Locale.ENGLISH);
-        for (String noise : NOISE_PATTERNS) {
-            if (lower.contains(noise)) {
-                return false;
+
+        for (String pattern : HARD_EXCLUDE_PATTERNS) {
+            if (lower.contains(pattern)) {
+                return EventClassification.EXCLUDED;
             }
         }
 
-        return true;
+        for (String pattern : LEADERSHIP_PATTERNS) {
+            if (lower.contains(pattern)) {
+                return EventClassification.LEADERSHIP_ELECTION;
+            }
+        }
+
+        if (REFERENDUM_PATTERN.matcher(title).find()) {
+            return EventClassification.REFERENDUM;
+        }
+
+        return EventClassification.NATIONAL_ELECTION;
     }
 
-    private PoliticalEvent buildEvent(Country country, String articleTitle, int fallbackYear) {
+    private PoliticalEvent buildEvent(Country country, String articleTitle, int fallbackYear, String eventType) {
         PoliticalEvent event = new PoliticalEvent();
         event.setCountry(country);
         event.setSourceArticleTitle(articleTitle);
-        event.setEventType("ELECTION_HELD");
+        event.setEventType(eventType);
         event.setTitle(articleTitle);
 
         String extract = safeFetchExtract(articleTitle);
