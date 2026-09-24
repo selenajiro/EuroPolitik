@@ -1,5 +1,6 @@
 package io.github.selenajiro.europolitik.news;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import io.github.selenajiro.europolitik.country.Country;
 import io.github.selenajiro.europolitik.country.CountryRepository;
 import io.github.selenajiro.europolitik.importrun.ImportRun;
@@ -25,23 +26,22 @@ public class NewsDiscoveryService {
     private static final Logger log = LoggerFactory.getLogger(NewsDiscoveryService.class);
     private static final String SOURCE = "gdelt-news-discovery";
     private static final String PIPELINE = "GDELT";
-    private static final long DELAY_BETWEEN_COUNTRIES_MS = 3000;
+    private static final long DELAY_BETWEEN_COUNTRIES_MS = 8000;
     private static final int MAX_RETRIES = 4;
-    private static final long BASE_BACKOFF_MS = 5000;
+    private static final long BASE_BACKOFF_MS = 8000;
     private static final int MAX_RECORDS_PER_COUNTRY = 75;
 
-    // Deliberately broad -- same lesson as the original election-discovery
-    // filter: better to include some borderline/adjacent stories than to
-    // silently starve the data with an overly strict keyword list.
+    // Trimmed from the original 26-term list, which was very likely hitting
+    // a query-complexity limit ("too short or too long"). Dropped clear
+    // overlaps (politics/political, "prime minister" already covered by
+    // minister, "ruling party" covered by coalition/government, cabinet
+    // covered by government, congress -- not really a European-parliament
+    // term, ballot covered by vote) rather than cutting coverage; still
+    // deliberately broad, not a tight political-science definition.
     private static final String KEYWORD_FILTER =
-            "(government OR minister OR parliament OR election OR president OR coalition " +
-                    "OR politics OR political OR policy OR legislation OR referendum OR chancellor " +
-                    "OR \"prime minister\" OR cabinet OR opposition OR \"ruling party\" OR sanctions " +
-                    "OR diplomat OR summit OR protest OR lawmaker OR senate OR congress OR vote OR ballot OR campaign)";
+            "(government OR election OR parliament OR president OR minister OR coalition " +
+                    "OR referendum OR legislation OR opposition OR protest OR vote OR sanctions OR summit OR senate)";
 
-    // FIPS 10-4 codes, which GDELT requires -- different from the ISO codes
-    // used everywhere else in this app for most of these. Verify against
-    // real per-country counts after the first run.
     private static final Map<String, String> ISO_TO_FIPS = Map.ofEntries(
             Map.entry("AL", "AL"), Map.entry("AD", "AN"), Map.entry("AT", "AU"),
             Map.entry("BY", "BO"), Map.entry("BE", "BE"), Map.entry("BA", "BK"),
@@ -67,6 +67,7 @@ public class NewsDiscoveryService {
     private final CountryRepository countryRepository;
     private final NewsArticleRepository newsArticleRepository;
     private final ImportRunRepository importRunRepository;
+    private final ObjectMapper objectMapper = new ObjectMapper();
 
     public NewsDiscoveryService(GdeltClient client,
                                 CountryRepository countryRepository,
@@ -105,7 +106,7 @@ public class NewsDiscoveryService {
 
                 GdeltResponseDto response;
                 try {
-                    response = withRetry(() -> client.searchNews(fipsCode, KEYWORD_FILTER, MAX_RECORDS_PER_COUNTRY));
+                    response = withRetry(() -> fetchAndParse(fipsCode));
                 } catch (Exception e) {
                     log.warn("GDELT query failed for {}: {}", country.getName(), e.getMessage());
                     skipped++;
@@ -165,6 +166,27 @@ public class NewsDiscoveryService {
         return run;
     }
 
+    private GdeltResponseDto fetchAndParse(String fipsCode) {
+        String raw = client.searchNewsRaw(fipsCode, KEYWORD_FILTER, MAX_RECORDS_PER_COUNTRY);
+        if (raw == null || raw.isBlank()) {
+            return new GdeltResponseDto(List.of());
+        }
+
+        String trimmed = raw.strip();
+        if (trimmed.length() < 300 && trimmed.toLowerCase(Locale.ENGLISH).startsWith("your query")) {
+            // A short, known-shaped GDELT error string (e.g. "Your query was
+            // too short or too long.") -- a malformed query, not a throttle.
+            // Retrying it would just fail the same way every time.
+            throw new GdeltBadQueryException(trimmed);
+        }
+
+        try {
+            return objectMapper.readValue(raw, GdeltResponseDto.class);
+        } catch (Exception e) {
+            throw new GdeltThrottledException(raw.length() > 200 ? raw.substring(0, 200) : raw);
+        }
+    }
+
     private LocalDate parseSeenDate(String seenDate) {
         if (seenDate == null || seenDate.isBlank()) {
             return null;
@@ -181,13 +203,16 @@ public class NewsDiscoveryService {
         while (true) {
             try {
                 return call.get();
-            } catch (HttpClientErrorException.TooManyRequests e) {
+            } catch (GdeltBadQueryException e) {
+                // Not retryable -- the query itself is the problem.
+                throw e;
+            } catch (HttpClientErrorException.TooManyRequests | GdeltThrottledException e) {
                 attempt++;
                 if (attempt > MAX_RETRIES) {
                     throw e;
                 }
                 long backoff = BASE_BACKOFF_MS * attempt;
-                log.warn("GDELT rate limited, backing off {}ms (attempt {}/{})", backoff, attempt, MAX_RETRIES);
+                log.warn("GDELT throttled ({}), backing off {}ms (attempt {}/{})", e.getClass().getSimpleName(), backoff, attempt, MAX_RETRIES);
                 sleep(backoff);
             } catch (ResourceAccessException e) {
                 attempt++;

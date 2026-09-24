@@ -29,7 +29,7 @@ public class GdeltClient {
                 .build();
     }
 
-    public GdeltResponseDto searchNews(String fipsCountryCode, String keywordFilter, int maxRecords) {
+    public String searchNewsRaw(String fipsCountryCode, String keywordFilter, int maxRecords) {
         String query = "sourcecountry:" + fipsCountryCode + " " + keywordFilter;
         String encodedQuery = URLEncoder.encode(query, StandardCharsets.UTF_8);
         URI uri = URI.create(baseUrl + "?query=" + encodedQuery
@@ -39,6 +39,6 @@ public class GdeltClient {
         return restClient.get()
                 .uri(uri)
                 .retrieve()
-                .body(GdeltResponseDto.class);
+                .body(String.class);
     }
 }
