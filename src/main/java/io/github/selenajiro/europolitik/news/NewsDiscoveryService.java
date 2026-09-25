@@ -31,16 +31,12 @@ public class NewsDiscoveryService {
     private static final long BASE_BACKOFF_MS = 8000;
     private static final int MAX_RECORDS_PER_COUNTRY = 75;
 
-    // Trimmed from the original 26-term list, which was very likely hitting
-    // a query-complexity limit ("too short or too long"). Dropped clear
-    // overlaps (politics/political, "prime minister" already covered by
-    // minister, "ruling party" covered by coalition/government, cabinet
-    // covered by government, congress -- not really a European-parliament
-    // term, ballot covered by vote) rather than cutting coverage; still
-    // deliberately broad, not a tight political-science definition.
-    private static final String KEYWORD_FILTER =
-            "(government OR election OR parliament OR president OR minister OR coalition " +
-                    "OR referendum OR legislation OR opposition OR protest OR vote OR sanctions OR summit OR senate)";
+    private static final List<String> KEYWORD_GROUPS = List.of(
+            "(government OR election OR parliament OR president)",
+            "(minister OR coalition OR referendum OR legislation)",
+            "(opposition OR protest OR vote OR sanctions)",
+            "(summit OR senate)"
+    );
 
     private static final Map<String, String> ISO_TO_FIPS = Map.ofEntries(
             Map.entry("AL", "AL"), Map.entry("AD", "AN"), Map.entry("AT", "AU"),
@@ -99,64 +95,65 @@ public class NewsDiscoveryService {
                     continue;
                 }
 
-                if (!first) {
-                    sleepBetweenCalls();
-                }
-                first = false;
+                for (String keywordGroup : KEYWORD_GROUPS) {
+                    if (!first) {
+                        sleepBetweenCalls();
+                    }
+                    first = false;
 
-                GdeltResponseDto response;
-                try {
-                    response = withRetry(() -> fetchAndParse(fipsCode));
-                } catch (Exception e) {
-                    log.warn("GDELT query failed for {}: {}", country.getName(), e.getMessage());
-                    skipped++;
-                    continue;
-                }
-
-                if (response == null || response.articles() == null) {
-                    skipped++;
-                    continue;
-                }
-
-                for (GdeltResponseDto.GdeltArticleDto article : response.articles()) {
-                    read++;
-                    if (article.url() == null || article.url().isBlank()
-                            || article.title() == null || article.title().isBlank()) {
+                    GdeltResponseDto response;
+                    try {
+                        response = withRetry(() -> fetchAndParse(fipsCode, keywordGroup));
+                    } catch (Exception e) {
+                        log.warn("GDELT query failed for {} ({}): {}", country.getName(), keywordGroup, e.getMessage());
                         skipped++;
                         continue;
                     }
 
-                    if (article.url().length() > 1000) {
+                    if (response == null || response.articles() == null) {
                         skipped++;
                         continue;
                     }
 
-                    if (newsArticleRepository.findBySourceUrl(article.url()).isPresent()) {
-                        skipped++;
-                        continue;
+                    for (GdeltResponseDto.GdeltArticleDto article : response.articles()) {
+                        read++;
+                        if (article.url() == null || article.url().isBlank()
+                                || article.title() == null || article.title().isBlank()) {
+                            skipped++;
+                            continue;
+                        }
+                        if (article.url().length() > 1000) {
+                            skipped++;
+                            continue;
+                        }
+
+                        if (newsArticleRepository.findBySourceUrl(article.url()).isPresent()) {
+                            skipped++;
+                            continue;
+                        }
+
+                        LocalDate publishedDate = parseSeenDate(article.seendate());
+                        if (publishedDate == null) {
+                            publishedDate = LocalDate.now();
+                        }
+
+                        NewsArticle newsArticle = new NewsArticle();
+                        newsArticle.setCountry(country);
+                        newsArticle.setTitle(truncate(article.title().trim(), 500));
+                        newsArticle.setSourceUrl(article.url());
+                        newsArticle.setSourceDomain(truncate(article.domain(), 200));
+                        newsArticle.setSourcePipeline(PIPELINE);
+                        newsArticle.setPublishedDate(publishedDate);
+                        newsArticle.setLanguage(truncate(article.language(), 50));
+                        newsArticle.setImageUrl(truncate(article.socialimage(), 1000));
+
+                        LocalDateTime now = LocalDateTime.now();
+                        newsArticle.setCreatedAt(now);
+                        newsArticle.setUpdatedAt(now);
+
+                        newsArticleRepository.save(newsArticle);
+                        inserted++;
                     }
-
-                    LocalDate publishedDate = parseSeenDate(article.seendate());
-                    if (publishedDate == null) {
-                        publishedDate = LocalDate.now();
-                    }
-
-                    NewsArticle newsArticle = new NewsArticle();
-                    newsArticle.setCountry(country);
-                    newsArticle.setTitle(truncate(article.title().trim(), 500));
-                    newsArticle.setSourceUrl(article.url());
-                    newsArticle.setSourceDomain(truncate(article.domain(), 200));
-                    newsArticle.setSourcePipeline(PIPELINE);
-                    newsArticle.setPublishedDate(publishedDate);
-                    newsArticle.setLanguage(truncate(article.language(), 50));
-                    newsArticle.setImageUrl(truncate(article.socialimage(), 1000));
-
-                    LocalDateTime now = LocalDateTime.now();
-                    newsArticle.setCreatedAt(now);
-                    newsArticle.setUpdatedAt(now);
-
-                    newsArticleRepository.save(newsArticle);
-                    inserted++;
                 }
             }
 
@@ -171,17 +168,14 @@ public class NewsDiscoveryService {
         return run;
     }
 
-    private GdeltResponseDto fetchAndParse(String fipsCode) {
-        String raw = client.searchNewsRaw(fipsCode, KEYWORD_FILTER, MAX_RECORDS_PER_COUNTRY);
+    private GdeltResponseDto fetchAndParse(String fipsCode, String keywordGroup) {
+        String raw = client.searchNewsRaw(fipsCode, keywordGroup, MAX_RECORDS_PER_COUNTRY);
         if (raw == null || raw.isBlank()) {
             return new GdeltResponseDto(List.of());
         }
 
         String trimmed = raw.strip();
         if (trimmed.length() < 300 && trimmed.toLowerCase(Locale.ENGLISH).startsWith("your query")) {
-            // A short, known-shaped GDELT error string (e.g. "Your query was
-            // too short or too long.") -- a malformed query, not a throttle.
-            // Retrying it would just fail the same way every time.
             throw new GdeltBadQueryException(trimmed);
         }
 
