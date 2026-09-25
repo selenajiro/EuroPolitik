@@ -1,0 +1,1 @@
+ALTER TABLE news_article ALTER COLUMN language TYPE VARCHAR(50);

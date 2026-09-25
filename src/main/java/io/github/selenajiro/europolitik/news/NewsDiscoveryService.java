@@ -26,8 +26,8 @@ public class NewsDiscoveryService {
     private static final Logger log = LoggerFactory.getLogger(NewsDiscoveryService.class);
     private static final String SOURCE = "gdelt-news-discovery";
     private static final String PIPELINE = "GDELT";
-    private static final long DELAY_BETWEEN_COUNTRIES_MS = 8000;
-    private static final int MAX_RETRIES = 4;
+    private static final long DELAY_BETWEEN_COUNTRIES_MS = 10000;
+    private static final int MAX_RETRIES = 5;
     private static final long BASE_BACKOFF_MS = 8000;
     private static final int MAX_RECORDS_PER_COUNTRY = 75;
 
@@ -126,6 +126,11 @@ public class NewsDiscoveryService {
                         continue;
                     }
 
+                    if (article.url().length() > 1000) {
+                        skipped++;
+                        continue;
+                    }
+
                     if (newsArticleRepository.findBySourceUrl(article.url()).isPresent()) {
                         skipped++;
                         continue;
@@ -138,13 +143,13 @@ public class NewsDiscoveryService {
 
                     NewsArticle newsArticle = new NewsArticle();
                     newsArticle.setCountry(country);
-                    newsArticle.setTitle(article.title().trim());
+                    newsArticle.setTitle(truncate(article.title().trim(), 500));
                     newsArticle.setSourceUrl(article.url());
-                    newsArticle.setSourceDomain(article.domain());
+                    newsArticle.setSourceDomain(truncate(article.domain(), 200));
                     newsArticle.setSourcePipeline(PIPELINE);
                     newsArticle.setPublishedDate(publishedDate);
-                    newsArticle.setLanguage(article.language());
-                    newsArticle.setImageUrl(article.socialimage());
+                    newsArticle.setLanguage(truncate(article.language(), 50));
+                    newsArticle.setImageUrl(truncate(article.socialimage(), 1000));
 
                     LocalDateTime now = LocalDateTime.now();
                     newsArticle.setCreatedAt(now);
@@ -196,6 +201,13 @@ public class NewsDiscoveryService {
         } catch (Exception e) {
             return null;
         }
+    }
+
+    private String truncate(String value, int maxLength) {
+        if (value == null) {
+            return null;
+        }
+        return value.length() > maxLength ? value.substring(0, maxLength) : value;
     }
 
     private <T> T withRetry(Supplier<T> call) {
