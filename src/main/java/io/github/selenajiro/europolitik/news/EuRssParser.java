@@ -28,6 +28,11 @@ public class EuRssParser {
             return result;
         }
 
+        int xmlStart = rawXml.indexOf('<');
+        if (xmlStart > 0) {
+            rawXml = rawXml.substring(xmlStart);
+        }
+
         try {
             DocumentBuilderFactory factory = DocumentBuilderFactory.newInstance();
             factory.setNamespaceAware(true);
