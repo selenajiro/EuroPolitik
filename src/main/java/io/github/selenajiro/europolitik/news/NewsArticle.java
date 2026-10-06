@@ -35,6 +35,9 @@ public class NewsArticle {
     @Column(nullable = false, length = 500)
     private String title;
 
+    @Column(length = 1000)
+    private String description;
+
     @Column(name = "source_url", nullable = false, length = 1000, unique = true)
     private String sourceUrl;
 
@@ -47,7 +50,7 @@ public class NewsArticle {
     @Column(name = "published_date", nullable = false)
     private LocalDate publishedDate;
 
-    @Column(length = 10)
+    @Column(length = 50)
     private String language;
 
     @Column(name = "image_url", length = 1000)

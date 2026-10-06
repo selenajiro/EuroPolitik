@@ -1,0 +1,1 @@
+ALTER TABLE news_article ADD COLUMN description VARCHAR(1000);
