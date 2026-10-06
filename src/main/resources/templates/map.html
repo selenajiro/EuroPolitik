@@ -412,8 +412,19 @@
         'REGIONAL_ELECTION_HELD': 'Regional election',
         'LOCAL_ELECTION_HELD': 'Local election',
         'BY_ELECTION_HELD': 'By-election',
-        'GOVERNMENT_CHANGE': 'Government change'
+        'GOVERNMENT_CHANGE': 'Government change',
+        'NEWS': 'News'
     };
+
+    function feedFlagFor(item) {
+        if (item.countryIsoCode) {
+            return `<img class="flag" src="https://flagcdn.com/w80/${item.countryIsoCode.toLowerCase()}.png" alt="">`;
+        }
+        if (item.type === 'NEWS') {
+            return `<img class="flag" src="https://flagcdn.com/w80/eu.png" alt="EU">`;
+        }
+        return '';
+    }
 
     let feedOffset = 0;
     const FEED_LIMIT = 10;
@@ -425,7 +436,7 @@
         const label = EVENT_TYPE_LABELS[item.type] || item.type;
         return `
                 <div class="feed-item">
-                    ${item.countryIsoCode ? `<img class="flag" src="https://flagcdn.com/w80/${item.countryIsoCode.toLowerCase()}.png" alt="">` : ''}
+                    ${feedFlagFor(item)}
                     <div class="body">
                         <div class="meta">
                             <span class="badge">${label}</span>

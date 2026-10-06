@@ -5,6 +5,8 @@ import io.github.selenajiro.europolitik.election.Election;
 import io.github.selenajiro.europolitik.election.ElectionRepository;
 import io.github.selenajiro.europolitik.favoritecountry.FavoriteCountry;
 import io.github.selenajiro.europolitik.favoritecountry.FavoriteCountryRepository;
+import io.github.selenajiro.europolitik.news.NewsArticle;
+import io.github.selenajiro.europolitik.news.NewsArticleRepository;
 import io.github.selenajiro.europolitik.politicalevent.PoliticalEvent;
 import io.github.selenajiro.europolitik.politicalevent.PoliticalEventRepository;
 import io.github.selenajiro.europolitik.user.UserAccount;
@@ -16,7 +18,6 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.Comparator;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -32,17 +33,20 @@ public class PersonalizedFeedService {
     private final FavoriteCountryRepository favoriteCountryRepository;
     private final PoliticalEventRepository politicalEventRepository;
     private final ElectionRepository electionRepository;
+    private final NewsArticleRepository newsArticleRepository;
     private final UserAccountRepository userAccountRepository;
     private final FeedSeenItemRepository feedSeenItemRepository;
 
     public PersonalizedFeedService(FavoriteCountryRepository favoriteCountryRepository,
                                    PoliticalEventRepository politicalEventRepository,
                                    ElectionRepository electionRepository,
+                                   NewsArticleRepository newsArticleRepository,
                                    UserAccountRepository userAccountRepository,
                                    FeedSeenItemRepository feedSeenItemRepository) {
         this.favoriteCountryRepository = favoriteCountryRepository;
         this.politicalEventRepository = politicalEventRepository;
         this.electionRepository = electionRepository;
+        this.newsArticleRepository = newsArticleRepository;
         this.userAccountRepository = userAccountRepository;
         this.feedSeenItemRepository = feedSeenItemRepository;
     }
@@ -51,10 +55,6 @@ public class PersonalizedFeedService {
     public PersonalizedFeedResponse buildPage(String username, int offset, int limit) {
         UserAccount user = userAccountRepository.findByUsername(username).orElseThrow();
         List<FavoriteCountry> favorites = favoriteCountryRepository.findAllByUsername(username);
-
-        if (favorites.isEmpty()) {
-            return new PersonalizedFeedResponse(List.of(), false);
-        }
 
         LocalDateTime now = LocalDateTime.now();
         List<FeedSeenItem> seenRows = feedSeenItemRepository.findAllByUserId(user.getId());
@@ -68,6 +68,14 @@ public class PersonalizedFeedService {
                 .collect(Collectors.toSet());
 
         List<ScoredItem> candidates = new ArrayList<>();
+
+        for (NewsArticle article : newsArticleRepository.findAllWithNoCountry()) {
+            String key = "NEWS:" + article.getId();
+            if (permanentlySeenKeys.contains(key)) {
+                continue;
+            }
+            candidates.add(new ScoredItem(key, article.getPublishedDate(), toFeedItem(article)));
+        }
 
         for (FavoriteCountry favorite : favorites) {
             Country country = favorite.getCountry();
@@ -95,6 +103,17 @@ public class PersonalizedFeedService {
                     continue;
                 }
                 candidates.add(new ScoredItem(key, election.getElectionDate(), toFeedItem(election)));
+            }
+
+            for (NewsArticle article : newsArticleRepository.findAllByCountryId(country.getId())) {
+                if (article.getPublishedDate() == null || article.getPublishedDate().isBefore(cutoff)) {
+                    continue;
+                }
+                String key = "NEWS:" + article.getId();
+                if (permanentlySeenKeys.contains(key)) {
+                    continue;
+                }
+                candidates.add(new ScoredItem(key, article.getPublishedDate(), toFeedItem(article)));
             }
         }
 
@@ -134,6 +153,15 @@ public class PersonalizedFeedService {
                 "ELECTION", e.getName(), null, e.getElectionDate(),
                 e.getCountry().getId(), e.getCountry().getName(), e.getCountry().getIsoCode(),
                 e.getSourceName(), e.getSourceUrl());
+    }
+
+    private FeedItem toFeedItem(NewsArticle a) {
+        return new FeedItem(
+                "NEWS", a.getTitle(), snippet(a.getDescription()), a.getPublishedDate(),
+                a.getCountry() != null ? a.getCountry().getId() : null,
+                a.getCountry() != null ? a.getCountry().getName() : null,
+                a.getCountry() != null ? a.getCountry().getIsoCode() : null,
+                a.getSourceDomain(), a.getSourceUrl());
     }
 
     private String snippet(String description) {
