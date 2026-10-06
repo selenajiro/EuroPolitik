@@ -30,14 +30,14 @@ public class SecurityConfig {
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers("/api/auth/**").permitAll()
-                        .requestMatchers("/map", "/", "/countries/**", "/compare", "/login", "/account", "/timeline").permitAll()
+                        .requestMatchers("/map", "/", "/countries/**", "/compare", "/login", "/account", "/timeline", "/news").permitAll()
                         .requestMatchers("/js/**").permitAll()
                         .requestMatchers("/js/**", "/favicon.svg").permitAll()
                         .requestMatchers("/api/ping").permitAll()
                         .requestMatchers("/api/countries/**", "/api/political-parties/**",
                                 "/api/elections/**", "/api/election-results/**", "/api/meps/**",
                                 "/api/political-events/**", "/api/country-statistics/**",
-                                "/api/country-languages/**", "/api/import-runs/**", "/api/timeline").permitAll()
+                                "/api/country-languages/**", "/api/import-runs/**", "/api/timeline", "/api/news").permitAll()
                         .anyRequest().authenticated())
                 .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
 
